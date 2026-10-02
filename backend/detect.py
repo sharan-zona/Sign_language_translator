@@ -1,15 +1,19 @@
 import cv2
 import mediapipe as mp
+import numpy as np
 
 VIDEO_PATH = "/home/codespace/.cache/huggingface/hub/datasets--vidit031--isl-isolated-40words/snapshots/255ce7fd10da5d05bc30d59668ba256e5f02531c/thank_you/thank_you__CISLR__00000__-4MbWP5T-cU.mp4"
 
 MODEL_PATH = "backend/models/hand_landmarker.task"
+OUTPUT_PATH = "backend/thank_you_landmarks_2hands.npy"
+
 
 BaseOptions = mp.tasks.BaseOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
 
 HandLandmarker = mp.tasks.vision.HandLandmarker
 HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
+
 
 options = HandLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=MODEL_PATH),
@@ -20,12 +24,15 @@ options = HandLandmarkerOptions(
     min_tracking_confidence=0.5,
 )
 
+
 cap = cv2.VideoCapture(VIDEO_PATH)
 
 if not cap.isOpened():
     print("Could not open video")
     exit()
 
+
+frames = []
 frame_count = 0
 
 with HandLandmarker.create_from_options(options) as landmarker:
@@ -54,19 +61,33 @@ with HandLandmarker.create_from_options(options) as landmarker:
             timestamp_ms
         )
 
-        if result.hand_landmarks:
-            print(
-                f"Frame {frame_count}: "
-                f"{len(result.hand_landmarks)} hand(s) detected"
-            )
+        # Start with two empty hands
+        frame_landmarks = np.zeros((2, 21, 3), dtype=np.float32)
 
-            for hand in result.hand_landmarks:
-                print(f"  Landmarks: {len(hand)}")
+        # Fill the detected hands
+        for hand_index, hand in enumerate(result.hand_landmarks[:2]):
 
-        else:
-            print(f"Frame {frame_count}: No hand detected")
+            for landmark_index, landmark in enumerate(hand):
+
+                frame_landmarks[hand_index, landmark_index] = [
+                    landmark.x,
+                    landmark.y,
+                    landmark.z
+                ]
+
+        frames.append(frame_landmarks)
+
 
 cap.release()
 
+
+landmarks = np.array(frames, dtype=np.float32)
+
+np.save(OUTPUT_PATH, landmarks)
+
+
 print()
-print("Total frames processed:", frame_count)
+print("Finished!")
+print("Total frames:", frame_count)
+print("Landmark array shape:", landmarks.shape)
+print("Saved to:", OUTPUT_PATH)
