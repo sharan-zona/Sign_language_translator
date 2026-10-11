@@ -12,8 +12,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 DATA_DIR = Path("backend/training_data")
 MODEL_DIR = Path("backend/models")
 
-MODEL_PATH = MODEL_DIR / "isl_lstm_best.keras"
-
+MODEL_PATH = MODEL_DIR / "isl_cnn_lstm_best.keras"
 
 # --------------------------------------------------
 # Load data
