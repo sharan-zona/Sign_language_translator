@@ -210,6 +210,7 @@ for index, class_name in enumerate(encoder.classes_):
 # --------------------------------------------------
 
 print()
+
 print("Creating train / validation / test split...")
 
 rng = np.random.default_rng(RANDOM_SEED)
@@ -218,49 +219,31 @@ train_indices = []
 val_indices = []
 test_indices = []
 
-
 for class_id in np.unique(y):
-
     indices = np.where(y == class_id)[0]
-
     rng.shuffle(indices)
 
     n = len(indices)
+    n_val = max(1, round(n * 0.15))
+    n_test = max(1, round(n * 0.15))
 
-    # One sample for validation
-    # One sample for testing
-    #
-    # Remaining samples go to training
+    while n_val + n_test >= n:
+        if n_val >= n_test and n_val > 1:
+            n_val -= 1
+        elif n_test > 1:
+            n_test -= 1
+        else:
+            break
 
-    n_val = 1
-    n_test = 1
     n_train = n - n_val - n_test
 
-    train_indices.extend(
-        indices[:n_train]
-    )
-
-    val_indices.extend(
-        indices[n_train:n_train + n_val]
-    )
-
-    test_indices.extend(
-        indices[n_train + n_val:]
-    )
-
-
-# --------------------------------------------------
-# Shuffle each split
-# --------------------------------------------------
+    train_indices.extend(indices[:n_train])
+    val_indices.extend(indices[n_train:n_train + n_val])
+    test_indices.extend(indices[n_train + n_val:])
 
 rng.shuffle(train_indices)
 rng.shuffle(val_indices)
 rng.shuffle(test_indices)
-
-
-# --------------------------------------------------
-# Create datasets
-# --------------------------------------------------
 
 X_train = X[train_indices]
 y_train = y[train_indices]
