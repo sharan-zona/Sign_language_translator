@@ -1,8 +1,9 @@
+
 import numpy as np
 from pathlib import Path
 
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.utils import to_categorical
 
@@ -31,7 +32,10 @@ y_train = np.load(DATA_DIR / "y_train.npy")
 y_val = np.load(DATA_DIR / "y_val.npy")
 y_test = np.load(DATA_DIR / "y_test.npy")
 
-classes = np.load(DATA_DIR / "classes.npy", allow_pickle=True)
+classes = np.load(
+    DATA_DIR / "classes.npy",
+    allow_pickle=True
+)
 
 
 # --------------------------------------------------
@@ -55,6 +59,7 @@ print("Number of classes:", len(classes))
 
 print()
 print("Classes:")
+
 for i, name in enumerate(classes):
     print(f"{i:2} -> {name}")
 
@@ -89,11 +94,11 @@ print()
 print("Building LSTM model...")
 
 model = Sequential([
+    Input(shape=(64, 126)),
 
     LSTM(
         128,
-        return_sequences=True,
-        input_shape=(64, 126)
+        return_sequences=True
     ),
 
     Dropout(0.3),
@@ -131,7 +136,7 @@ model.compile(
 
 
 # --------------------------------------------------
-# Display model
+# Display model architecture
 # --------------------------------------------------
 
 print()
@@ -155,7 +160,7 @@ early_stopping = EarlyStopping(
 )
 
 model_checkpoint = ModelCheckpoint(
-    model_path,
+    filepath=model_path,
     monitor="val_accuracy",
     save_best_only=True,
     verbose=1
@@ -173,50 +178,30 @@ print("================================")
 history = model.fit(
     X_train,
     y_train,
-
     validation_data=(
         X_val,
         y_val
     ),
-
     epochs=100,
     batch_size=16,
-
     callbacks=[
         early_stopping,
         model_checkpoint
     ],
-
     verbose=1
 )
 
 
 # --------------------------------------------------
-# Evaluate on test data
-# --------------------------------------------------
-
-print()
-print("Evaluating model...")
-print("================================")
-
-test_loss, test_accuracy = model.evaluate(
-    X_test,
-    y_test,
-    verbose=1
-)
-
-print()
-print("Test Loss:", test_loss)
-print("Test Accuracy:", test_accuracy)
-
-
-# --------------------------------------------------
-# Save final model
+# Save final training model
 # --------------------------------------------------
 
 final_model_path = MODEL_DIR / "isl_lstm_final.keras"
 
 model.save(final_model_path)
+
+print()
+print("Final training model saved:", final_model_path)
 
 
 # --------------------------------------------------
@@ -230,6 +215,33 @@ np.save(
     history.history,
     allow_pickle=True
 )
+
+print("Training history saved:", history_path)
+
+
+# --------------------------------------------------
+# Load and evaluate the best checkpoint
+# --------------------------------------------------
+
+print()
+print("Loading best saved LSTM model...")
+print("================================")
+
+best_model = load_model(model_path)
+
+print()
+print("Evaluating best model on test data...")
+print("================================")
+
+test_loss, test_accuracy = best_model.evaluate(
+    X_test,
+    y_test,
+    verbose=1
+)
+
+print()
+print("Best Model Test Loss:", test_loss)
+print(f"Best Model Test Accuracy: {test_accuracy * 100:.2f}%")
 
 
 # --------------------------------------------------
