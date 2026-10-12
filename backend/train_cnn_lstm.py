@@ -24,15 +24,13 @@ from tensorflow.keras.utils import to_categorical
 # Paths
 # --------------------------------------------------
 
-DATA_DIR = Path("backend/training_data")
+DATA_DIR = Path("backend/training_data_v2")
 MODEL_DIR = Path("backend/models")
-
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-BEST_MODEL_PATH = MODEL_DIR / "isl_cnn_lstm_best.keras"
-FINAL_MODEL_PATH = MODEL_DIR / "isl_cnn_lstm_final.keras"
-HISTORY_PATH = MODEL_DIR / "cnn_lstm_training_history.npy"
-
+BEST_MODEL_PATH = MODEL_DIR / "isl_cnn_lstm_v2_best.keras"
+FINAL_MODEL_PATH = MODEL_DIR / "isl_cnn_lstm_v2_final.keras"
+HISTORY_PATH = MODEL_DIR / "cnn_lstm_v2_training_history.npy"
 
 # --------------------------------------------------
 # Load prepared data

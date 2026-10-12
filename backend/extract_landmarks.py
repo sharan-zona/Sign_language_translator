@@ -9,7 +9,7 @@ from pathlib import Path
 MODEL_PATH = "backend/models/hand_landmarker.task"
 
 # Separate folder: preserve the original landmarks
-OUTPUT_DIR = Path("backend/processed_data_test")
+OUTPUT_DIR = Path("backend/processed_data_v2")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 print("Loading dataset...")
@@ -17,7 +17,8 @@ ds = load_dataset("vidit031/isl-isolated-40words")
 rows = ds["train"]
 
 # Test only 5 videos before processing the full dataset
-test_rows = rows.select(range(min(5, len(rows))))
+# Process the full dataset
+test_rows = rows
 
 BaseOptions = mp.tasks.BaseOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
@@ -43,7 +44,7 @@ for index, row in enumerate(test_rows, 1):
         repo_id="vidit031/isl-isolated-40words",
         repo_type="dataset",
         filename=video_path,
-        local_files_only=True,
+        local_files_only=False,
     )
 
     cap = cv2.VideoCapture(video_file)

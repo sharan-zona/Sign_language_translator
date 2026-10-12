@@ -9,11 +9,10 @@ from sklearn.preprocessing import LabelEncoder
 # Configuration
 # --------------------------------------------------
 
-PROCESSED_DIR = Path("backend/processed_data")
-OUTPUT_DIR = Path("backend/training_data")
+PROCESSED_DIR = Path("backend/processed_data_v2")
+OUTPUT_DIR = Path("backend/training_data_v2")
 
 LABELS_FILE = PROCESSED_DIR / "labels.csv"
-
 SEQUENCE_LENGTH = 64
 FEATURES_PER_FRAME = 126
 MIN_SAMPLES_PER_CLASS = 6
@@ -139,6 +138,7 @@ for _, row in df.iterrows():
     # Pad or truncate to 64 frames
     # --------------------------------------------------
 
+    
     if frames < SEQUENCE_LENGTH:
 
         padding = np.zeros(
@@ -153,7 +153,15 @@ for _, row in df.iterrows():
 
     elif frames > SEQUENCE_LENGTH:
 
-        data = data[:SEQUENCE_LENGTH]
+        # Sample 64 frames evenly across the entire video
+        indices = np.linspace(
+            0,
+            frames - 1,
+            SEQUENCE_LENGTH,
+            dtype=int
+        )
+
+        data = data[indices]
 
     X.append(data)
     words.append(word)
