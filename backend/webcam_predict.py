@@ -88,7 +88,37 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 for i, point in enumerate(hand):
                     landmarks[slot, i] = [point.x, point.y, point.z]
 
+        
+        # Draw the hand skeleton on the webcam frame
+        connections = [
+            (0, 1), (1, 2), (2, 3), (3, 4),
+            (0, 5), (5, 6), (6, 7), (7, 8),
+            (5, 9), (9, 10), (10, 11), (11, 12),
+            (9, 13), (13, 14), (14, 15), (15, 16),
+            (13, 17), (0, 17), (17, 18), (18, 19), (19, 20),
+        ]
+
+        height, width = frame.shape[:2]
+
+        for hand in result.hand_landmarks:
+            points = [
+                (int(p.x * width), int(p.y * height))
+                for p in hand
+            ]
+
+            for start, end in connections:
+                cv2.line(
+                    frame, points[start], points[end],
+                    (0, 255, 0), 2
+                )
+
+            for point in points:
+                cv2.circle(
+                    frame, point, 5, (0, 180, 255), -1
+                )
+
         sequence.append(landmarks.reshape(FEATURES))
+
 
         if len(sequence) == SEQUENCE_LENGTH:
             sample = np.asarray(sequence, dtype=np.float32)
