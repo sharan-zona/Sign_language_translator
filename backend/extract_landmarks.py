@@ -43,7 +43,7 @@ for index, row in enumerate(test_rows, 1):
         repo_id="vidit031/isl-isolated-40words",
         repo_type="dataset",
         filename=video_path,
-        local_files_only=True,
+        local_files_only=False,
     )
 
     cap = cv2.VideoCapture(video_file)
