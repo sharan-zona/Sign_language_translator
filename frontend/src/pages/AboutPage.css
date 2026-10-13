@@ -1,0 +1,1002 @@
+/* =========================================================
+   ABOUT PAGE STYLES
+   ========================================================= */
+.about-page-root {
+  padding: 56px 0 80px 0;
+  width: 100%;
+  background-color: var(--page-bg);
+}
+
+.about-container {
+  display: flex;
+  flex-direction: column;
+  gap: 72px;
+}
+
+/* Shared section typography */
+.section-header {
+  margin-bottom: 40px;
+}
+
+.section-heading {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.025em;
+  margin-bottom: 10px;
+}
+
+.section-subtitle {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+/* =========================================================
+   2. PAGE INTRODUCTION
+   ========================================================= */
+.about-intro-section {
+  padding-bottom: 8px;
+}
+
+.about-intro-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.85fr;
+  align-items: center;
+  gap: 48px;
+}
+
+.about-intro-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.about-eyebrow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--light-mint);
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  color: var(--primary-teal);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 14px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.eyebrow-icon {
+  color: var(--primary-teal);
+}
+
+.about-intro-heading {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.18;
+  color: var(--text-main);
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.about-intro-description {
+  font-size: 1.15rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.about-feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.feature-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--dark-teal);
+  box-shadow: var(--shadow-sm);
+}
+
+.feature-pill .pill-icon {
+  color: var(--primary-teal);
+}
+
+/* Intro Right Illustration Card */
+.about-intro-visual {
+  width: 100%;
+}
+
+.intro-illustration-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 32px 24px;
+  box-shadow: 0 16px 36px -12px rgba(13, 148, 136, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.illustration-graphic {
+  position: relative;
+  width: 220px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.illustration-circle-bg {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--light-mint) 40%, rgba(204, 251, 241, 0.4) 100%);
+  border: 2px dashed rgba(13, 148, 136, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-teal);
+}
+
+.illustration-hand-svg {
+  width: 58px;
+  height: 58px;
+  color: var(--primary-teal);
+}
+
+.floating-badge-top {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+}
+
+.floating-badge-bottom {
+  position: absolute;
+  bottom: 12px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--light-mint);
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--dark-teal);
+  box-shadow: var(--shadow-sm);
+}
+
+.illustration-caption {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* =========================================================
+   3. OUR MISSION (Full-width pale mint card)
+   ========================================================= */
+.mission-card {
+  background-color: var(--light-mint);
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  border-radius: 24px;
+  padding: 44px 48px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  box-shadow: 0 8px 24px -6px rgba(13, 148, 136, 0.08);
+}
+
+.mission-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 18px;
+  background-color: #FFFFFF;
+  color: var(--primary-teal);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.12);
+  border: 1px solid rgba(13, 148, 136, 0.15);
+}
+
+.mission-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mission-heading {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.mission-description {
+  font-size: 1.1rem;
+  line-height: 1.65;
+  color: var(--text-main);
+  opacity: 0.9;
+  margin: 0;
+}
+
+/* =========================================================
+   4. HOW SIGNBRIDGE WORKS
+   ========================================================= */
+.workflow-steps-container {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.workflow-step-card {
+  flex: 1;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 30px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+}
+
+.workflow-step-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(13, 148, 136, 0.4);
+  box-shadow: 0 16px 28px -8px rgba(13, 148, 136, 0.14);
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.step-number-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background-color: var(--primary-teal);
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.step-icon-bg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background-color: var(--light-mint);
+  color: var(--primary-teal);
+}
+
+.step-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+.step-description {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.workflow-arrow-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-teal);
+  opacity: 0.6;
+  padding: 0 4px;
+}
+
+.arrow-mobile {
+  display: none;
+}
+
+/* =========================================================
+   5. BACKEND FUNCTIONALITY / TECH STACK
+   ========================================================= */
+.tech-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.tech-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 30px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.tech-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(13, 148, 136, 0.4);
+  box-shadow: 0 14px 28px -6px rgba(13, 148, 136, 0.12);
+}
+
+.tech-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 18px;
+}
+
+.tech-card-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background-color: var(--light-mint);
+  color: var(--primary-teal);
+}
+
+.tech-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: #F8FAFC;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.tech-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 6px;
+}
+
+.tech-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--dark-teal);
+  background-color: var(--light-mint);
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  display: inline-block;
+}
+
+.tech-card-desc {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.tech-accuracy-notice {
+  margin-top: 28px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--primary-teal);
+  border-radius: 12px;
+  padding: 18px 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+.notice-icon {
+  color: var(--primary-teal);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.notice-text {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.notice-text strong {
+  color: var(--text-main);
+}
+
+/* =========================================================
+   6. APPLICATION FLOWCHART
+   ========================================================= */
+.flowchart-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 40px 36px;
+  box-shadow: 0 12px 32px -8px rgba(13, 148, 136, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Legend */
+.flowchart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 14px 20px;
+  background-color: #F8FAFC;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  flex-wrap: wrap;
+}
+
+.legend-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.legend-shape {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.shape-process {
+  border-radius: 3px;
+  background-color: var(--light-mint);
+  border: 2px solid var(--primary-teal);
+}
+
+.shape-decision {
+  transform: rotate(45deg);
+  background-color: #F1F5F9;
+  border: 2px solid #64748B;
+  width: 13px;
+  height: 13px;
+}
+
+.legend-arrow-icon {
+  color: var(--primary-teal);
+}
+
+/* Diagram Structure */
+.flowchart-diagram-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.flow-step {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.flow-arrow-down {
+  display: flex;
+  justify-content: center;
+  color: var(--primary-teal);
+  padding: 4px 0;
+}
+
+/* Node Types */
+.flow-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  transition: transform var(--transition-fast);
+}
+
+/* Terminal Node (Start / End) */
+.node-terminal {
+  background-color: var(--primary-teal);
+  color: #FFFFFF;
+  padding: 8px 28px;
+  border-radius: 24px;
+  font-size: 0.92rem;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+}
+
+.node-end {
+  background-color: #087F73;
+}
+
+/* Process Node (Rectangle) */
+.node-process {
+  background-color: #FFFFFF;
+  border: 2px solid var(--primary-teal);
+  border-radius: 12px;
+  padding: 12px 24px;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  min-width: 250px;
+  text-align: center;
+}
+
+.node-process:hover {
+  background-color: var(--light-mint);
+  transform: translateY(-1px);
+}
+
+.node-badge {
+  position: absolute;
+  top: -9px;
+  right: 14px;
+  background-color: var(--light-mint);
+  border: 1px solid rgba(13, 148, 136, 0.3);
+  color: var(--dark-teal);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+/* Decision Block */
+.flow-decision-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  margin: 4px 0;
+}
+
+.node-decision {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.decision-diamond {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #F8FAFC;
+  border: 2px solid #64748B;
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 0.92rem;
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Decision Branches */
+.decision-branches-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+}
+
+.branch-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background-color: #F8FAFC;
+  border: 1px dashed var(--border-color);
+  border-radius: 16px;
+  padding: 16px 14px;
+}
+
+.branch-arrow {
+  color: var(--text-muted);
+}
+
+.branch-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tag-yes {
+  background-color: var(--light-mint);
+  color: var(--dark-teal);
+  border: 1px solid rgba(13, 148, 136, 0.3);
+}
+
+.tag-no {
+  background-color: #FEE2E2;
+  color: #DC2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+/* Sub-process items */
+.node-sub-process {
+  font-size: 0.88rem;
+  padding: 8px 16px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.error-process {
+  background-color: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  color: #B91C1C;
+}
+
+.error-icon {
+  color: #DC2626;
+}
+
+.action-process {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+}
+
+.alert-box {
+  background-color: #FFFBEB;
+  border: 1px solid #FDE68A;
+  color: #B45309;
+}
+
+.alert-quote {
+  font-style: italic;
+  font-size: 0.84rem;
+}
+
+.node-loop-process {
+  background-color: var(--light-mint);
+  border: 1px solid var(--primary-teal);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  color: var(--dark-teal);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.loop-icon {
+  color: var(--primary-teal);
+}
+
+.loop-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.stop-process {
+  background-color: #F1F5F9;
+  border: 1px solid var(--border-color);
+  color: #475569;
+}
+
+/* =========================================================
+   7. HOW TO USE SIGNBRIDGE / GETTING STARTED
+   ========================================================= */
+.instructions-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 44px 48px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.instructions-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px 36px;
+  margin: 0;
+  padding: 0;
+}
+
+.instruction-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.item-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background-color: var(--light-mint);
+  color: var(--dark-teal);
+  border: 1px solid rgba(13, 148, 136, 0.3);
+  font-size: 0.95rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.item-content strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.item-content p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.instructions-note-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background-color: var(--light-mint);
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  border-radius: 14px;
+  padding: 16px 20px;
+}
+
+.note-box-icon {
+  color: var(--dark-teal);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.note-box-text {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.note-box-text strong {
+  color: var(--dark-teal);
+}
+
+/* =========================================================
+   8. FINAL CALL TO ACTION (Compact teal banner)
+   ========================================================= */
+.about-cta-banner {
+  background-color: var(--primary-teal);
+  border-radius: 20px;
+  padding: 40px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  box-shadow: 0 16px 32px -8px rgba(13, 148, 136, 0.3);
+}
+
+.about-cta-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-cta-title {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.about-cta-desc {
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.btn-cta-teal-white {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background-color: #FFFFFF;
+  color: var(--primary-teal);
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 12px;
+  text-decoration: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-cta-teal-white:hover {
+  background-color: var(--light-mint);
+  color: var(--dark-teal);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN BREAKPOINTS
+   ========================================================= */
+
+/* Tablet (max-width: 992px) */
+@media (max-width: 992px) {
+  .about-intro-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .about-intro-heading {
+    font-size: 2.5rem;
+  }
+
+  .workflow-steps-container {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .workflow-arrow-divider {
+    padding: 4px 0;
+  }
+
+  .arrow-desktop {
+    display: none;
+  }
+
+  .arrow-mobile {
+    display: block;
+  }
+
+  .tech-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .instructions-list {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .about-cta-banner {
+    flex-direction: column;
+    text-align: center;
+    padding: 36px 32px;
+  }
+
+  .btn-cta-teal-white {
+    width: 100%;
+  }
+}
+
+/* Mobile (max-width: 640px) */
+@media (max-width: 640px) {
+  .about-page-root {
+    padding: 36px 0 64px 0;
+  }
+
+  .about-container {
+    gap: 52px;
+  }
+
+  .about-intro-heading {
+    font-size: 2rem;
+  }
+
+  .about-intro-description {
+    font-size: 1rem;
+  }
+
+  .mission-card {
+    flex-direction: column;
+    padding: 32px 24px;
+    text-align: center;
+    gap: 20px;
+  }
+
+  .tech-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flowchart-card {
+    padding: 24px 16px;
+  }
+
+  .flowchart-legend {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .decision-branches-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .node-process {
+    min-width: unset;
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 0.88rem;
+  }
+
+  .instructions-card {
+    padding: 32px 20px;
+  }
+
+  .about-cta-banner {
+    padding: 32px 20px;
+  }
+
+  .about-cta-title {
+    font-size: 1.55rem;
+  }
+
+  .about-cta-desc {
+    font-size: 0.95rem;
+  }
+}
