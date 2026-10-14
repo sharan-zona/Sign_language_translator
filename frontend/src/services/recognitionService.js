@@ -99,14 +99,16 @@ export async function sendFrameForRecognition(frameBlob, apiUrl = DEFAULT_API_UR
       };
     }
 
-    if (data.success && typeof data.recognized_text === 'string') {
-      return {
-        success: true,
-        recognized_text: data.recognized_text.trim(),
-        confidence: typeof data.confidence === 'number' ? data.confidence : 1.0,
-      };
-    }
-
+  if (data.success && typeof data.recognized_text === 'string') {
+  return {
+    success: true,
+    recognized_text: data.recognized_text.trim(),
+    confidence: typeof data.confidence === 'number' ? data.confidence : 0,
+    ready: data.ready !== false,
+    frames_collected: data.frames_collected ?? 0,
+    frames_required: data.frames_required ?? 64,
+  };
+}
     return {
       success: false,
       error: data.error || 'Recognition model was unable to classify gestures in frame',

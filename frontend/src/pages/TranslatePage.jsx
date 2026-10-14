@@ -246,8 +246,11 @@ export default function TranslatePage() {
   }, [stream]);
 
   // Start Translation
+
+  // Start Translation
   const startTranslation = async () => {
-    // If camera is not on, turn it on first!
+    if (isRecognizing) return;
+
     if (cameraStatus !== 'Camera On' || !stream) {
       const ok = await turnCameraOn();
       if (!ok) return;
@@ -255,53 +258,109 @@ export default function TranslatePage() {
 
     setIsRecognizing(true);
     setRecognitionStatus('Processing');
-    setRecognitionNotice('');
+    setRecognitionNotice('Collecting webcam frames for prediction...');
 
-    // Active frame recognition loop
-    recognitionIntervalRef.current = setInterval(async () => {
-      if (!videoRef.current || videoRef.current.readyState < 2) return;
+    // Use recursive timeouts to prevent overlapping API requests.
+    let stopped = false;
+
+    const processFrame = async () => {
+      if (stopped) return;
+
+      const video = videoRef.current;
+
+      if (!video || video.readyState < 2) {
+        recognitionIntervalRef.current = setTimeout(processFrame, 250);
+        return;
+      }
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       try {
-        const frameBlob = await captureVideoFrameBlob(videoRef.current, 0.85);
+        const frameBlob = await captureVideoFrameBlob(video, 0.85);
 
-        abortControllerRef.current = new AbortController();
+        if (stopped) return;
+
         const result = await sendFrameForRecognition(
           frameBlob,
           DEFAULT_API_URL,
-          abortControllerRef.current.signal
+          controller.signal
         );
 
-        if (result.success && result.recognized_text) {
-          setRecognitionStatus('Ready');
-          setIsDemoText(false);
-          setTranslatedText(result.recognized_text);
-          setTextLog((prev) => {
-            if (prev[prev.length - 1] !== result.recognized_text) {
-              return [...prev, result.recognized_text];
-            }
-            return prev;
-          });
-          speakText(result.recognized_text);
-        } else {
-          // Honest status: Model/API not connected or cannot classify
+        if (stopped) return;
+
+        if (!result.success) {
           setRecognitionStatus('Model Disconnected');
           setRecognitionNotice(
-            result.error ||
-              'Recognition model not connected. Start the Flask backend on http://localhost:5000 to enable inference.'
+            result.error || 'The recognition API returned an error.'
           );
+        } else if (result.ready === false) {
+          setRecognitionStatus('Processing');
+          setRecognitionNotice(
+            `Collecting frames: ${result.frames_collected ?? 0}/${
+              result.frames_required ?? 64
+            }`
+          );
+        } else {
+          setRecognitionStatus('Ready');
+          setRecognitionNotice('');
+
+          const word = result.recognized_text;
+          setIsDemoText(false);
+
+          if (
+            word &&
+            word !== 'Uncertain' &&
+            word !== 'Collecting frames...'
+          ) {
+            setTranslatedText(word);
+
+            setTextLog((prev) =>
+              prev[prev.length - 1] !== word
+                ? [...prev, word]
+                : prev
+            );
+
+            speakText(word);
+          } else if (word === 'Uncertain') {
+            setRecognitionNotice('Sign unclear. Try showing your hand clearly.');
+          }
         }
       } catch (err) {
-        setRecognitionStatus('Error');
-        setRecognitionNotice('Recognition pipeline encountered a capture error.');
-        console.warn('Recognition cycle error:', err);
+        if (err.name !== 'AbortError' && !stopped) {
+          setRecognitionStatus('Error');
+          setRecognitionNotice(
+            'Recognition failed. Check the backend terminal for errors.'
+          );
+          console.warn('Recognition cycle error:', err);
+        }
+      } finally {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
+
+        if (!stopped) {
+          recognitionIntervalRef.current = setTimeout(processFrame, 100);
+        }
       }
-    }, 2200);
+    };
+
+    // Store a stop handle so Stop Translation can cancel future requests.
+    recognitionIntervalRef.current = setTimeout(processFrame, 0);
+
+    // Keep the stop handle aware of this particular translation run.
+    abortControllerRef.current = {
+      abort() {
+        stopped = true;
+      },
+    };
   };
+
 
   // Stop Translation
   const stopTranslation = () => {
     if (recognitionIntervalRef.current) {
-      clearInterval(recognitionIntervalRef.current);
+      clearTimeout(recognitionIntervalRef.current);
       recognitionIntervalRef.current = null;
     }
     if (abortControllerRef.current) {
