@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Camera,
@@ -18,40 +19,47 @@ import {
   Server,
   Zap,
 } from 'lucide-react';
+
 import {
   captureVideoFrameBlob,
   sendFrameForRecognition,
   checkBackendConnection,
   DEFAULT_API_URL,
 } from '../services/recognitionService';
+
 import './TranslatePage.css';
 
 export default function TranslatePage() {
-  // Camera state
+  // Camera
   const videoRef = useRef(null);
-  const [stream, setStream] = useState(null);
-  const [cameraStatus, setCameraStatus] = useState('Camera Off'); // 'Camera Off' | 'Camera On' | 'Camera Error'
-  const [cameraErrorMessage, setCameraErrorMessage] = useState('');
-
-  // Translation / Recognition state
-  const [isRecognizing, setIsRecognizing] = useState(false);
-  const [recognitionStatus, setRecognitionStatus] = useState('Idle'); // 'Idle' | 'Processing' | 'Ready' | 'Error' | 'Model Disconnected'
-  const [recognitionNotice, setRecognitionNotice] = useState('');
+  const skeletonCanvasRef = useRef(null);
   const recognitionIntervalRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const lastSpokenTextRef = useRef('');
+  const stoppedRef = useRef(false);
 
-  // Output text state
+  const [stream, setStream] = useState(null);
+  const [cameraStatus, setCameraStatus] = useState('Camera Off');
+  const [cameraErrorMessage, setCameraErrorMessage] = useState('');
+
+  // Recognition
+  const [isRecognizing, setIsRecognizing] = useState(false);
+  const [recognitionStatus, setRecognitionStatus] = useState('Idle');
+  const [recognitionNotice, setRecognitionNotice] = useState('');
+  const [handLandmarks, setHandLandmarks] = useState([]);
+  const [handConfidence, setHandConfidence] = useState(0);
+
+  // Translation
   const [translatedText, setTranslatedText] = useState('');
   const [textLog, setTextLog] = useState([]);
   const [isDemoText, setIsDemoText] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
-  // Voice synthesis state
+  // Voice
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [speechAvailable, setSpeechAvailable] = useState(true);
-  const lastSpokenTextRef = useRef('');
 
-  // Backend connection status
+  // Backend
   const [backendHealth, setBackendHealth] = useState({
     checked: false,
     available: false,
@@ -59,107 +67,118 @@ export default function TranslatePage() {
   });
   const [isCheckingBackend, setIsCheckingBackend] = useState(false);
 
-  // Check speech synthesis availability
+  // Speech support
   useEffect(() => {
     if (!('speechSynthesis' in window)) {
       setSpeechAvailable(false);
     }
   }, []);
 
-  // Initial backend check
-  useEffect(() => {
-    checkBackend();
+  // Backend health check
+  const checkBackend = useCallback(async () => {
+    setIsCheckingBackend(true);
+
+    try {
+      const result = await checkBackendConnection();
+
+      setBackendHealth({
+        checked: true,
+        available: result.available,
+        message: result.message,
+      });
+    } finally {
+      setIsCheckingBackend(false);
+    }
   }, []);
 
-  const checkBackend = async () => {
-    setIsCheckingBackend(true);
-    const result = await checkBackendConnection();
-    setBackendHealth({
-      checked: true,
-      available: result.available,
-      message: result.message,
-    });
-    setIsCheckingBackend(false);
-  };
+  useEffect(() => {
+    checkBackend();
+  }, [checkBackend]);
 
-  // Safe Speech Synthesis Runner
+  // Voice output
   const speakText = useCallback(
     (textToSpeak) => {
-      if (!voiceEnabled || !('speechSynthesis' in window) || !textToSpeak.trim()) {
+      if (
+        !voiceEnabled ||
+        !('speechSynthesis' in window) ||
+        !textToSpeak?.trim()
+      ) {
         return;
       }
 
-      // Avoid repeating the exact same utterance continuously
-      if (lastSpokenTextRef.current === textToSpeak && window.speechSynthesis.speaking) {
+      if (
+        lastSpokenTextRef.current === textToSpeak &&
+        window.speechSynthesis.speaking
+      ) {
         return;
       }
 
-      try {
-        window.speechSynthesis.cancel(); // Stop overlapping speech
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        utterance.rate = 0.95;
-        utterance.pitch = 1.0;
-        utterance.onend = () => {
-          lastSpokenTextRef.current = textToSpeak;
-        };
-        utterance.onerror = () => {
-          lastSpokenTextRef.current = '';
-        };
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn('Speech synthesis error:', err);
-      }
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.rate = 0.95;
+      utterance.pitch = 1;
+
+      utterance.onend = () => {
+        lastSpokenTextRef.current = textToSpeak;
+      };
+
+      utterance.onerror = () => {
+        lastSpokenTextRef.current = '';
+      };
+
+      window.speechSynthesis.speak(utterance);
     },
     [voiceEnabled]
   );
 
-  // Toggle Voice Output
   const toggleVoiceOutput = () => {
     if (!speechAvailable) return;
 
     if (voiceEnabled) {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      window.speechSynthesis?.cancel();
       setVoiceEnabled(false);
     } else {
       setVoiceEnabled(true);
+
       if (translatedText.trim()) {
-        speakText(translatedText);
+        const utterance = new SpeechSynthesisUtterance(translatedText);
+        window.speechSynthesis.speak(utterance);
       }
     }
   };
 
-  // Synchronize stream with videoRef element whenever stream changes
+  // Synchronize the camera stream
   useEffect(() => {
-    if (videoRef.current) {
-      if (stream) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch((err) => {
-          console.warn('Video play interrupted or muted required:', err);
-        });
-      } else {
-        videoRef.current.srcObject = null;
-      }
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (stream) {
+      video.srcObject = stream;
+      video.play().catch((err) => {
+        console.warn('Video play error:', err);
+      });
+    } else {
+      video.srcObject = null;
     }
   }, [stream]);
 
-  // Turn Camera On
+  // Camera on
   const turnCameraOn = async () => {
     setCameraErrorMessage('');
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       setCameraStatus('Camera Error');
       setCameraErrorMessage(
-        'Your browser does not support camera access or the page is not running in a secure context (HTTPS or localhost).'
+        'Camera access requires browser permission and HTTPS or localhost.'
       );
       return false;
     }
 
     try {
       let mediaStream;
+
       try {
-        // Preferred high-resolution user-facing constraints
         mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 1280 },
@@ -168,9 +187,7 @@ export default function TranslatePage() {
           },
           audio: false,
         });
-      } catch (constraintErr) {
-        console.warn('High-res constraints rejected, falling back to basic video:', constraintErr);
-        // Fallback for devices without 720p or strict constraints
+      } catch {
         mediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: false,
@@ -181,90 +198,115 @@ export default function TranslatePage() {
       setCameraStatus('Camera On');
       setCameraErrorMessage('');
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.play().catch((err) => console.warn('Play error:', err));
-      }
       return true;
     } catch (err) {
       console.error('Camera access error:', err);
       setCameraStatus('Camera Error');
 
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      if (
+        err.name === 'NotAllowedError' ||
+        err.name === 'PermissionDeniedError'
+      ) {
         setCameraErrorMessage(
-          'Camera access was denied. Please click the camera or lock icon in your browser address bar, choose "Allow" for camera permissions, and click "Turn Camera On" again.'
+          'Camera permission denied. Allow camera access in your browser settings.'
         );
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setCameraErrorMessage('No camera device was detected on your computer.');
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      } else if (err.name === 'NotFoundError') {
+        setCameraErrorMessage('No camera was found.');
+      } else if (err.name === 'NotReadableError') {
         setCameraErrorMessage(
-          'Your camera may be in use by another application. Please close other camera tabs and try again.'
+          'The camera may be in use by another application.'
         );
       } else {
-        setCameraErrorMessage(`Unable to access camera: ${err.message || 'Unknown error'}`);
+        setCameraErrorMessage(
+          `Unable to access camera: ${err.message || 'Unknown error'}`
+        );
       }
+
       return false;
     }
   };
 
-  // Turn Camera Off
-  const turnCameraOff = useCallback(() => {
-    // If recognition is active, stop it first
-    if (isRecognizing) {
-      stopTranslation();
+  // Stop recognition
+  const stopTranslation = useCallback(() => {
+    stoppedRef.current = true;
+
+    if (recognitionIntervalRef.current) {
+      clearTimeout(recognitionIntervalRef.current);
+      recognitionIntervalRef.current = null;
     }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    setIsRecognizing(false);
+    setRecognitionStatus('Idle');
+    setHandLandmarks([]);
+  }, []);
+
+  // Camera off
+  const turnCameraOff = () => {
+    stopTranslation();
 
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
     }
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
+    setStream(null);
     setCameraStatus('Camera Off');
     setCameraErrorMessage('');
-  }, [stream, isRecognizing]);
+    setHandLandmarks([]);
+    setHandConfidence(0);
+  };
 
-  // Clean unmount: Stop tracks and speech
+  // Clean up on unmount
   useEffect(() => {
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      stoppedRef.current = true;
+
       if (recognitionIntervalRef.current) {
-        clearInterval(recognitionIntervalRef.current);
+        clearTimeout(recognitionIntervalRef.current);
       }
+
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
       }
+
+      window.speechSynthesis?.cancel();
     };
   }, [stream]);
 
-  // Start Translation
-
-  // Start Translation
+  // Start recognition
   const startTranslation = async () => {
     if (isRecognizing) return;
 
-    if (cameraStatus !== 'Camera On' || !stream) {
-      const ok = await turnCameraOn();
-      if (!ok) return;
+    let activeStream = stream;
+
+    if (cameraStatus !== 'Camera On' || !activeStream) {
+      const cameraStarted = await turnCameraOn();
+      if (!cameraStarted) return;
+
+      // State updates are asynchronous; wait for the video stream to attach.
+      activeStream = videoRef.current?.srcObject;
     }
 
+    if (!activeStream) {
+      setRecognitionNotice('Waiting for the camera stream. Try again.');
+      return;
+    }
+
+    stoppedRef.current = false;
     setIsRecognizing(true);
     setRecognitionStatus('Processing');
     setRecognitionNotice('Collecting webcam frames for prediction...');
 
-    // Use recursive timeouts to prevent overlapping API requests.
-    let stopped = false;
-
     const processFrame = async () => {
-      if (stopped) return;
+      if (stoppedRef.current) return;
 
       const video = videoRef.current;
 
@@ -279,7 +321,7 @@ export default function TranslatePage() {
       try {
         const frameBlob = await captureVideoFrameBlob(video, 0.85);
 
-        if (stopped) return;
+        if (stoppedRef.current) return;
 
         const result = await sendFrameForRecognition(
           frameBlob,
@@ -287,21 +329,35 @@ export default function TranslatePage() {
           controller.signal
         );
 
-        if (stopped) return;
+        if (stoppedRef.current) return;
 
-        if (!result.success) {
+        // Update skeleton and confidence for every API response.
+        if (result.success) {
+          setHandLandmarks(
+            Array.isArray(result.landmarks) ? result.landmarks : []
+          );
+
+          setHandConfidence(
+            typeof result.confidence === 'number'
+              ? Math.max(0, Math.min(1, result.confidence))
+              : 0
+          );
+        } else {
+          setHandLandmarks([]);
           setRecognitionStatus('Model Disconnected');
           setRecognitionNotice(
             result.error || 'The recognition API returned an error.'
           );
-        } else if (result.ready === false) {
+        }
+
+        if (result.success && result.ready === false) {
           setRecognitionStatus('Processing');
           setRecognitionNotice(
             `Collecting frames: ${result.frames_collected ?? 0}/${
               result.frames_required ?? 64
             }`
           );
-        } else {
+        } else if (result.success) {
           setRecognitionStatus('Ready');
           setRecognitionNotice('');
 
@@ -315,22 +371,24 @@ export default function TranslatePage() {
           ) {
             setTranslatedText(word);
 
-            setTextLog((prev) =>
-              prev[prev.length - 1] !== word
-                ? [...prev, word]
-                : prev
+            setTextLog((previous) =>
+              previous[previous.length - 1] !== word
+                ? [...previous, word]
+                : previous
             );
 
             speakText(word);
           } else if (word === 'Uncertain') {
-            setRecognitionNotice('Sign unclear. Try showing your hand clearly.');
+            setRecognitionNotice(
+              'Sign unclear. Try showing your hand clearly.'
+            );
           }
         }
       } catch (err) {
-        if (err.name !== 'AbortError' && !stopped) {
+        if (err.name !== 'AbortError' && !stoppedRef.current) {
           setRecognitionStatus('Error');
           setRecognitionNotice(
-            'Recognition failed. Check the backend terminal for errors.'
+            'Recognition failed. Check the backend terminal.'
           );
           console.warn('Recognition cycle error:', err);
         }
@@ -339,152 +397,219 @@ export default function TranslatePage() {
           abortControllerRef.current = null;
         }
 
-        if (!stopped) {
+        if (!stoppedRef.current) {
           recognitionIntervalRef.current = setTimeout(processFrame, 100);
         }
       }
     };
 
-    // Store a stop handle so Stop Translation can cancel future requests.
     recognitionIntervalRef.current = setTimeout(processFrame, 0);
+  };
 
-    // Keep the stop handle aware of this particular translation run.
-    abortControllerRef.current = {
-      abort() {
-        stopped = true;
-      },
+  // Draw the hand skeleton
+  useEffect(() => {
+    const canvas = skeletonCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const drawSkeleton = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      if (!rect.width || !rect.height) return;
+
+      const width = rect.width;
+      const height = rect.height;
+
+      if (
+        canvas.width !== Math.round(width * dpr) ||
+        canvas.height !== Math.round(height * dpr)
+      ) {
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+      }
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const connections = [
+        [0, 1], [1, 2], [2, 3], [3, 4],
+        [0, 5], [5, 6], [6, 7], [7, 8],
+        [5, 9], [9, 10], [10, 11], [11, 12],
+        [9, 13], [13, 14], [14, 15], [15, 16],
+        [13, 17], [17, 18], [18, 19], [19, 20],
+        [0, 17],
+      ];
+
+      handLandmarks.forEach((hand) => {
+        if (!Array.isArray(hand) || hand.length < 21) return;
+
+        // Accept either [x, y] pairs or MediaPipe-style {x, y} points.
+        const points = hand.map((point) => {
+          const x = Array.isArray(point) ? point[0] : point?.x;
+          const y = Array.isArray(point) ? point[1] : point?.y;
+
+          return {
+            x: Number(x) * width,
+            y: Number(y) * height,
+          };
+        });
+
+        if (
+          points.some(
+            (point) =>
+              !Number.isFinite(point.x) ||
+              !Number.isFinite(point.y)
+          )
+        ) {
+          return;
+        }
+
+        ctx.strokeStyle = '#35e0c1';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        connections.forEach(([start, end]) => {
+          const a = points[start];
+          const b = points[end];
+
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        });
+
+        points.forEach(({ x, y }) => {
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = '#b9fff0';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(53, 224, 193, 0.65)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+      });
     };
-  };
 
+    drawSkeleton();
 
-  // Stop Translation
-  const stopTranslation = () => {
-    if (recognitionIntervalRef.current) {
-      clearTimeout(recognitionIntervalRef.current);
-      recognitionIntervalRef.current = null;
-    }
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    setIsRecognizing(false);
-    setRecognitionStatus('Idle');
-  };
+    const observer = new ResizeObserver(drawSkeleton);
+    observer.observe(canvas);
 
-  // Copy text to clipboard
+    return () => observer.disconnect();
+  }, [handLandmarks]);
+
+  // Copy translation
   const handleCopyText = async () => {
     if (!translatedText.trim()) return;
 
     try {
       await navigator.clipboard.writeText(translatedText);
-      setCopyFeedback(true);
-      setTimeout(() => setCopyFeedback(false), 2400);
     } catch {
-      // Fallback
       const textArea = document.createElement('textarea');
       textArea.value = translatedText;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      setCopyFeedback(true);
-      setTimeout(() => setCopyFeedback(false), 2400);
     }
+
+    setCopyFeedback(true);
+    setTimeout(() => setCopyFeedback(false), 2000);
   };
 
-  // Clear text
+  // Clear translation
   const handleClearText = () => {
     setTranslatedText('');
     setTextLog([]);
     setIsDemoText(false);
     lastSpokenTextRef.current = '';
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    window.speechSynthesis?.cancel();
   };
 
-  // Insert clearly identified demo phrase for UI evaluation
+  // Demo sample
   const handleInsertDemoSample = () => {
     const sample = 'Hello! How are you today?';
     setTranslatedText(sample);
     setIsDemoText(true);
     setTextLog(['Hello!', 'How are you today?']);
-    speakText(sample);
+
+    if (voiceEnabled) {
+      speakText(sample);
+    }
   };
 
   return (
     <div className="translate-page-root">
       <div className="container translate-container">
-        {/* =========================================================
-            3. PAGE HEADER
-           ========================================================= */}
-        <section className="translate-header-section" aria-labelledby="translate-page-title">
+        <section
+          className="translate-header-section"
+          aria-labelledby="translate-page-title"
+        >
           <div className="translate-header-content text-center">
             <h1 id="translate-page-title" className="translate-main-heading">
               Sign Language Translator
             </h1>
+
             <p className="translate-main-description">
-              Show a supported sign in front of your camera and view the recognized text in real
-              time.
+              Show a supported sign in front of your camera and view the
+              recognized text in real time.
             </p>
 
-            {/* Three Information Chips */}
             <div className="translate-info-chips">
               <div className="info-chip">
-                <Camera size={14} className="chip-icon" />
+                <Camera size={14} />
                 <span>Camera-Based Input</span>
               </div>
               <div className="info-chip">
-                <Activity size={14} className="chip-icon" />
+                <Activity size={14} />
                 <span>Live Recognition</span>
               </div>
               <div className="info-chip">
-                <Volume2 size={14} className="chip-icon" />
+                <Volume2 size={14} />
                 <span>Optional Voice Output</span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* =========================================================
-            4. MAIN CAMERA PREVIEW CARD
-           ========================================================= */}
-        <section className="camera-card" aria-label="Camera Video Preview Area">
-          {/* Card Header */}
+        <section className="camera-card" aria-label="Camera preview">
           <div className="card-header">
             <div className="card-header-left">
               <Camera size={20} className="card-header-icon" />
               <h2 className="card-title">Live Camera</h2>
             </div>
 
-            {/* Status Badge: Camera Off | Camera On | Camera Error */}
             <div className="card-header-right">
-              {cameraStatus === 'Camera On' && (
-                <div className="badge badge-camera-on" role="status">
-                  <span className="live-dot" aria-hidden="true"></span>
-                  <span>Camera On</span>
-                </div>
-              )}
-              {cameraStatus === 'Camera Off' && (
-                <div className="badge badge-camera-off" role="status">
-                  <span className="off-dot" aria-hidden="true"></span>
-                  <span>Camera Off</span>
-                </div>
-              )}
-              {cameraStatus === 'Camera Error' && (
-                <div className="badge badge-camera-error" role="status">
-                  <AlertCircle size={14} />
-                  <span>Camera Error</span>
-                </div>
-              )}
+              <span
+                className={`badge ${
+                  cameraStatus === 'Camera On'
+                    ? 'badge-camera-on'
+                    : cameraStatus === 'Camera Error'
+                    ? 'badge-camera-error'
+                    : 'badge-camera-off'
+                }`}
+                role="status"
+              >
+                {cameraStatus}
+              </span>
             </div>
           </div>
 
-          {/* Camera Viewport (Aspect ratio 16:9) */}
           <div className="camera-viewport-container">
-            {/* The video element is ALWAYS rendered in DOM so videoRef is never null */}
             <div
               className="camera-feed-wrapper"
-              style={{ display: cameraStatus === 'Camera On' ? 'block' : 'none' }}
+              style={{
+                display: cameraStatus === 'Camera On' ? 'block' : 'none',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
             >
               <video
                 ref={videoRef}
@@ -492,38 +617,96 @@ export default function TranslatePage() {
                 playsInline
                 muted
                 className="camera-video-stream"
-                aria-label="Active webcam stream"
+                aria-label="Live webcam"
               />
 
-              {/* Subtle camera status information overlay when active */}
+              <canvas
+                ref={skeletonCanvasRef}
+                className="hand-skeleton-overlay"
+                aria-label="Detected hand skeleton"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 2,
+                }}
+              />
+
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 16,
+                  bottom: 16,
+                  zIndex: 4,
+                  color: '#b9fff0',
+                  background: 'rgba(0, 20, 20, 0.82)',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                }}
+              >
+                <div>
+                  Confidence: {(handConfidence * 100).toFixed(1)}%
+                </div>
+
+                <div
+                  style={{
+                    width: 150,
+                    height: 4,
+                    marginTop: 7,
+                    background: 'rgba(255,255,255,0.2)',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${handConfidence * 100}%`,
+                      height: '100%',
+                      background: '#35e0c1',
+                      transition: 'width 0.2s ease',
+                    }}
+                  />
+                </div>
+              </div>
+
               <div className="camera-overlay-bar" aria-hidden="true">
                 <div className="overlay-tag overlay-live">
-                  <span className="pulse-dot"></span> LIVE
+                  <span className="pulse-dot" /> LIVE
                 </div>
+
                 {isRecognizing && (
                   <div className="overlay-tag overlay-scanning">
                     <Sparkles size={12} />
                     <span>RECOGNITION ACTIVE</span>
                   </div>
                 )}
+
                 <div className="overlay-tag overlay-res">720p HD</div>
               </div>
 
-              {/* Corner guide reticles */}
-              <div className="camera-reticle reticle-tl" aria-hidden="true"></div>
-              <div className="camera-reticle reticle-tr" aria-hidden="true"></div>
-              <div className="camera-reticle reticle-bl" aria-hidden="true"></div>
-              <div className="camera-reticle reticle-br" aria-hidden="true"></div>
+              <div className="camera-reticle reticle-tl" />
+              <div className="camera-reticle reticle-tr" />
+              <div className="camera-reticle reticle-bl" />
+              <div className="camera-reticle reticle-br" />
             </div>
 
-            {/* Centered placeholder illustration when inactive */}
             {cameraStatus !== 'Camera On' && (
               <div className="camera-placeholder-stage">
                 <div className="placeholder-icon-circle">
                   <Camera size={44} className="placeholder-camera-icon" />
                 </div>
-                <h3 className="placeholder-title">Camera preview will appear here.</h3>
-                <p className="placeholder-subtitle">Enable your camera to begin.</p>
+
+                <h3 className="placeholder-title">
+                  Camera preview will appear here.
+                </h3>
+
+                <p className="placeholder-subtitle">
+                  Enable your camera to begin.
+                </p>
+
                 <button
                   type="button"
                   className="btn-placeholder-camera"
@@ -532,34 +715,24 @@ export default function TranslatePage() {
                   <Camera size={18} />
                   <span>Turn Camera On</span>
                 </button>
-                <div className="placeholder-badge">
-                  <Info size={14} />
-                  <span>Video is processed locally in browser session</span>
-                </div>
               </div>
             )}
           </div>
 
-          {/* Camera Error Message */}
           {cameraErrorMessage && (
             <div className="camera-error-banner" role="alert">
-              <AlertCircle size={18} className="error-banner-icon" />
+              <AlertCircle size={18} />
               <span>{cameraErrorMessage}</span>
             </div>
           )}
 
-          {/* =========================================================
-              5. CAMERA CONTROLS
-             ========================================================= */}
           <div className="camera-controls-bar">
             <div className="controls-button-group">
-              {/* Primary Button: Start Translation / Stop Translation */}
               {isRecognizing ? (
                 <button
                   type="button"
                   className="btn-control btn-stop-translation"
                   onClick={stopTranslation}
-                  aria-label="Stop Translation"
                 >
                   <Square size={18} fill="currentColor" />
                   <span>Stop Translation</span>
@@ -569,20 +742,17 @@ export default function TranslatePage() {
                   type="button"
                   className="btn-control btn-start-translation"
                   onClick={startTranslation}
-                  aria-label="Start Translation"
                 >
                   <Play size={18} fill="currentColor" />
                   <span>Start Translation</span>
                 </button>
               )}
 
-              {/* Secondary Button: Turn Camera On / Turn Camera Off */}
               {cameraStatus === 'Camera On' ? (
                 <button
                   type="button"
                   className="btn-control btn-toggle-camera btn-camera-active"
                   onClick={turnCameraOff}
-                  aria-label="Turn Camera Off"
                 >
                   <VideoOff size={18} />
                   <span>Turn Camera Off</span>
@@ -592,7 +762,6 @@ export default function TranslatePage() {
                   type="button"
                   className="btn-control btn-toggle-camera"
                   onClick={turnCameraOn}
-                  aria-label="Turn Camera On"
                 >
                   <Camera size={18} />
                   <span>Turn Camera On</span>
@@ -600,69 +769,52 @@ export default function TranslatePage() {
               )}
             </div>
 
-            {/* Concise Helper Text */}
             <p className="camera-helper-text">
               Keep your hands inside the frame and use good lighting.
             </p>
           </div>
         </section>
 
-        {/* =========================================================
-            6. TRANSLATION OUTPUT CARD
-           ========================================================= */}
-        <section className="output-card" aria-label="Translation Text Output Area">
-          {/* Output Card Header */}
+        <section className="output-card" aria-label="Translation output">
           <div className="card-header">
             <div className="card-header-left">
               <MessageSquare size={20} className="card-header-icon" />
               <h2 className="card-title">Translation Output</h2>
             </div>
 
-            {/* Status Badge: Waiting for signs | Recognizing | Translation ready | Recognition unavailable */}
             <div className="card-header-right">
-              {recognitionStatus === 'Idle' && !translatedText && (
-                <span className="badge badge-status-waiting">Waiting for signs</span>
-              )}
-              {recognitionStatus === 'Processing' && (
-                <span className="badge badge-status-recognizing">
-                  <Activity size={13} className="spin-icon" />
-                  <span>Recognizing</span>
-                </span>
-              )}
-              {(recognitionStatus === 'Ready' || (translatedText && !isRecognizing)) && (
-                <span className="badge badge-status-ready">
-                  <Check size={13} />
-                  <span>Translation ready</span>
-                </span>
-              )}
-              {(recognitionStatus === 'Model Disconnected' || recognitionStatus === 'Error') && (
-                <span className="badge badge-status-unavailable">
-                  <AlertCircle size={13} />
-                  <span>Recognition unavailable</span>
-                </span>
-              )}
+              <span className="badge">
+                {recognitionStatus === 'Ready'
+                  ? 'Translation ready'
+                  : recognitionStatus === 'Processing'
+                  ? 'Recognizing'
+                  : recognitionStatus === 'Error' ||
+                    recognitionStatus === 'Model Disconnected'
+                  ? 'Recognition unavailable'
+                  : 'Waiting for signs'}
+              </span>
             </div>
           </div>
 
-          {/* Main Text Area */}
           <div className="output-body">
             {translatedText ? (
               <div className="recognized-text-display">
                 {isDemoText && (
                   <div className="demo-mode-pill">
                     <Info size={12} />
-                    <span>Identified Demo Preview (Simulated sample text)</span>
+                    <span>Demo sample — not model output</span>
                   </div>
                 )}
+
                 <div className="main-translated-string" aria-live="polite">
-                  &ldquo;{translatedText}&rdquo;
+                  “{translatedText}”
                 </div>
 
                 {textLog.length > 1 && (
                   <div className="recognized-log-flow">
                     <span className="log-label">History:</span>
-                    {textLog.map((phrase, idx) => (
-                      <span key={idx} className="phrase-pill">
+                    {textLog.map((phrase, index) => (
+                      <span key={`${phrase}-${index}`} className="phrase-pill">
                         {phrase}
                       </span>
                     ))}
@@ -670,44 +822,34 @@ export default function TranslatePage() {
                 )}
               </div>
             ) : (
-              /* Empty state */
               <div className="output-empty-state">
-                <p className="empty-state-text">Your translated text will appear here.</p>
+                <p className="empty-state-text">
+                  Your translated text will appear here.
+                </p>
                 <p className="empty-state-sub">
-                  Start the camera and position supported hand signs inside the frame.
+                  Start the camera and show a supported sign.
                 </p>
               </div>
             )}
 
-            {/* Recognition Notice (e.g. Model Disconnected message) */}
             {recognitionNotice && (
               <div className="recognition-notice-box" role="status">
-                <AlertCircle size={16} className="notice-box-icon" />
-                <span className="notice-box-text">{recognitionNotice}</span>
+                <AlertCircle size={16} />
+                <span>{recognitionNotice}</span>
               </div>
             )}
 
-            {/* Output Controls */}
             <div className="output-action-row">
               <div className="output-actions-left">
-                {/* 1. Voice Output Toggle */}
                 <button
                   type="button"
                   className={`btn-action-pill ${voiceEnabled ? 'btn-voice-on' : ''}`}
                   onClick={toggleVoiceOutput}
                   disabled={!speechAvailable}
-                  aria-pressed={voiceEnabled}
-                  title={
-                    speechAvailable
-                      ? voiceEnabled
-                        ? 'Disable text-to-speech output'
-                        : 'Enable text-to-speech output'
-                      : 'Speech synthesis is unsupported in this browser'
-                  }
                 >
                   {voiceEnabled ? (
                     <>
-                      <Volume2 size={16} className="voice-active-icon" />
+                      <Volume2 size={16} />
                       <span>Voice Output On</span>
                     </>
                   ) : (
@@ -718,18 +860,16 @@ export default function TranslatePage() {
                   )}
                 </button>
 
-                {/* 2. Copy Text */}
                 <button
                   type="button"
                   className="btn-action-pill"
                   onClick={handleCopyText}
                   disabled={!translatedText}
-                  aria-label="Copy translated text to clipboard"
                 >
                   {copyFeedback ? (
                     <>
-                      <Check size={16} className="copy-check-icon" />
-                      <span className="copy-success-text">Copied!</span>
+                      <Check size={16} />
+                      <span>Copied!</span>
                     </>
                   ) : (
                     <>
@@ -739,26 +879,22 @@ export default function TranslatePage() {
                   )}
                 </button>
 
-                {/* 3. Clear Text */}
                 <button
                   type="button"
                   className="btn-action-pill btn-clear"
                   onClick={handleClearText}
                   disabled={!translatedText}
-                  aria-label="Clear translated output text"
                 >
                   <Trash2 size={16} />
                   <span>Clear Text</span>
                 </button>
               </div>
 
-              {/* Sample Demo Helper Button for Testing */}
               <div className="output-actions-right">
                 <button
                   type="button"
                   className="btn-demo-sample"
                   onClick={handleInsertDemoSample}
-                  title="Loads a clearly identified sample phrase to test speech and copy functionality"
                 >
                   <Zap size={14} />
                   <span>Load Sample Demo Phrase</span>
@@ -768,100 +904,52 @@ export default function TranslatePage() {
           </div>
         </section>
 
-        {/* =========================================================
-            7. RECOGNITION STATUS CARDS
-           ========================================================= */}
-        <section
-          className="status-cards-row"
-          aria-label="Hardware and Pipeline Status Summary"
-        >
-          {/* Card 1: Camera Status */}
+        <section className="status-cards-row" aria-label="System status">
           <div className="status-mini-card">
             <div className="mini-card-icon-wrapper">
-              <Camera size={20} className="mini-icon" />
+              <Camera size={20} />
             </div>
             <div className="mini-card-content">
               <span className="mini-card-label">Camera Status</span>
-              <div className="mini-card-value">
-                <span
-                  className={`status-indicator-dot ${
-                    cameraStatus === 'Camera On' ? 'dot-active' : 'dot-inactive'
-                  }`}
-                  aria-hidden="true"
-                ></span>
-                <span className="status-text">{cameraStatus}</span>
-              </div>
+              <span className="status-text">{cameraStatus}</span>
             </div>
           </div>
 
-          {/* Card 2: Recognition Status */}
           <div className="status-mini-card">
             <div className="mini-card-icon-wrapper">
-              <Activity size={20} className="mini-icon" />
+              <Activity size={20} />
             </div>
             <div className="mini-card-content">
               <span className="mini-card-label">Recognition Status</span>
-              <div className="mini-card-value">
-                <span
-                  className={`status-indicator-dot ${
-                    recognitionStatus === 'Processing'
-                      ? 'dot-processing'
-                      : recognitionStatus === 'Ready'
-                      ? 'dot-active'
-                      : recognitionStatus === 'Model Disconnected' ||
-                        recognitionStatus === 'Error'
-                      ? 'dot-warning'
-                      : 'dot-inactive'
-                  }`}
-                  aria-hidden="true"
-                ></span>
-                <span className="status-text">
-                  {recognitionStatus === 'Model Disconnected'
-                    ? 'Model Offline'
-                    : recognitionStatus}
-                </span>
-              </div>
+              <span className="status-text">{recognitionStatus}</span>
             </div>
           </div>
 
-          {/* Card 3: Voice Status */}
           <div className="status-mini-card">
             <div className="mini-card-icon-wrapper">
-              <Volume2 size={20} className="mini-icon" />
+              <Volume2 size={20} />
             </div>
             <div className="mini-card-content">
               <span className="mini-card-label">Voice Status</span>
-              <div className="mini-card-value">
-                <span
-                  className={`status-indicator-dot ${
-                    voiceEnabled ? 'dot-active' : 'dot-inactive'
-                  }`}
-                  aria-hidden="true"
-                ></span>
-                <span className="status-text">{voiceEnabled ? 'Voice On' : 'Voice Off'}</span>
-              </div>
+              <span className="status-text">
+                {voiceEnabled ? 'Voice On' : 'Voice Off'}
+              </span>
             </div>
           </div>
         </section>
 
-        {/* =========================================================
-            8. RECOGNITION ARCHITECTURE & BACKEND CONTRACT CARD
-           ========================================================= */}
-        <section
-          className="backend-info-card"
-          aria-label="Recognition Pipeline Architecture Information"
-        >
+        <section className="backend-info-card" aria-label="Backend status">
           <div className="backend-info-header">
             <div className="backend-info-title">
-              <Server size={18} className="backend-icon" />
-              <h3>Flask Backend Pipeline &amp; Service Contract</h3>
+              <Server size={18} />
+              <h3>Recognition Backend</h3>
             </div>
+
             <button
               type="button"
               className="btn-health-check"
               onClick={checkBackend}
               disabled={isCheckingBackend}
-              aria-label="Check backend service connectivity"
             >
               <RefreshCw
                 size={14}
@@ -874,30 +962,33 @@ export default function TranslatePage() {
           <div className="backend-info-body">
             <div className="backend-pipeline-flow">
               <span className="pipe-node">Browser Camera</span>
-              <span className="pipe-arrow">&rarr;</span>
+              <span className="pipe-arrow">→</span>
               <span className="pipe-node">Frame Capture</span>
-              <span className="pipe-arrow">&rarr;</span>
-              <span className="pipe-node">MediaPipe / OpenCV</span>
-              <span className="pipe-arrow">&rarr;</span>
+              <span className="pipe-arrow">→</span>
+              <span className="pipe-node">MediaPipe</span>
+              <span className="pipe-arrow">→</span>
               <span className="pipe-node">Trained Model</span>
-              <span className="pipe-arrow">&rarr;</span>
-              <span className="pipe-node">SpeechSynthesis</span>
+              <span className="pipe-arrow">→</span>
+              <span className="pipe-node">Text Output</span>
             </div>
 
             <div className="backend-status-message">
               <div className="endpoint-tag">
                 <code>Endpoint: {DEFAULT_API_URL}</code>
               </div>
+
               <div
                 className={`connection-pill ${
-                  backendHealth.available ? 'pill-connected' : 'pill-disconnected'
+                  backendHealth.available
+                    ? 'pill-connected'
+                    : 'pill-disconnected'
                 }`}
               >
                 <span
                   className={`dot-status ${
                     backendHealth.available ? 'dot-active' : 'dot-warning'
                   }`}
-                ></span>
+                />
                 <span>{backendHealth.message}</span>
               </div>
             </div>

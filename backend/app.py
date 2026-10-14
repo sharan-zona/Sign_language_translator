@@ -10,28 +10,41 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from tensorflow.keras.models import load_model
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_PATH = os.path.join(BASE_DIR, "models", "isl_cnn_lstm_best.keras")
-CLASSES_PATH = os.path.join(BASE_DIR, "training_data", "classes.npy")
-HAND_MODEL_PATH = os.path.join(BASE_DIR, "models", "hand_landmarker.task")
+MODEL_PATH = os.path.join(
+    BASE_DIR, "models", "isl_cnn_lstm_best.keras"
+)
+CLASSES_PATH = os.path.join(
+    BASE_DIR, "training_data", "classes.npy"
+)
+HAND_MODEL_PATH = os.path.join(
+    BASE_DIR, "models", "hand_landmarker.task"
+)
 
 SEQUENCE_LENGTH = 64
 FEATURES = 126
 CONFIDENCE_THRESHOLD = 0.65
+MAX_SESSIONS = 20
 
 app = Flask(__name__)
 CORS(app)
 
 print("Loading ISL model...")
+
 model = load_model(MODEL_PATH, compile=False)
 classes = np.load(CLASSES_PATH, allow_pickle=True)
 
 if model.input_shape[1:] != (SEQUENCE_LENGTH, FEATURES):
-    raise ValueError(f"Unexpected model input shape: {model.input_shape}")
+    raise ValueError(
+        f"Unexpected model input shape: {model.input_shape}"
+    )
 
 if model.output_shape[-1] != len(classes):
-    raise ValueError("Model output count does not match classes.npy")
+    raise ValueError(
+        "Model output count does not match classes.npy"
+    )
 
 print("Model loaded successfully.")
 
@@ -50,9 +63,40 @@ options = HandLandmarkerOptions(
 )
 
 landmarker = HandLandmarker.create_from_options(options)
+
 sequences = {}
 last_timestamp = {}
-MAX_SESSIONS = 20
+
+
+def get_detected_hands(result):
+    """Return normalized x/y points for drawing the hand skeleton."""
+    detected_hands = []
+
+    for hand in result.hand_landmarks:
+        detected_hands.append([
+            [float(point.x), float(point.y)]
+            for point in hand
+        ])
+
+    return detected_hands
+
+
+def build_response(
+    recognized_text,
+    confidence,
+    ready,
+    frames_collected,
+    detected_hands,
+):
+    return jsonify({
+        "success": True,
+        "recognized_text": recognized_text,
+        "confidence": float(confidence),
+        "ready": ready,
+        "frames_collected": frames_collected,
+        "frames_required": SEQUENCE_LENGTH,
+        "landmarks": detected_hands,
+    })
 
 
 @app.get("/api/health")
@@ -75,6 +119,7 @@ def recognize():
         }), 400
 
     image_bytes = request.files["frame"].read()
+
     if not image_bytes:
         return jsonify({
             "success": False,
@@ -90,9 +135,10 @@ def recognize():
             "error": "Invalid image frame",
         }), 400
 
-    # Match the existing webcam script's mirrored camera input.
+    # Mirror webcam frames, matching the current live camera pipeline.
     frame = cv2.flip(frame, 1)
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
     mp_image = mp.Image(
         image_format=mp.ImageFormat.SRGB,
         data=rgb,
@@ -105,13 +151,21 @@ def recognize():
     last_timestamp[session_id] = timestamp
 
     result = landmarker.detect_for_video(mp_image, timestamp)
+
+    # Preserve the existing model input layout:
+    # left hand slot 0, right hand slot 1, 21 points, xyz.
     landmarks = np.zeros((2, 21, 3), dtype=np.float32)
 
     if result.hand_landmarks:
         for hand, handedness in zip(
-            result.hand_landmarks, result.handedness
+            result.hand_landmarks,
+            result.handedness,
         ):
-            label = handedness[0].category_name if handedness else ""
+            label = (
+                handedness[0].category_name
+                if handedness
+                else ""
+            )
 
             if label == "Left":
                 slot = 0
@@ -122,60 +176,81 @@ def recognize():
 
             for index, point in enumerate(hand):
                 landmarks[slot, index] = [
-                    point.x, point.y, point.z
+                    point.x,
+                    point.y,
+                    point.z,
                 ]
+
+    # Send coordinates separately for the frontend overlay.
+    detected_hands = get_detected_hands(result)
 
     if session_id not in sequences:
         if len(sequences) >= MAX_SESSIONS:
             oldest = next(iter(sequences))
             sequences.pop(oldest, None)
             last_timestamp.pop(oldest, None)
+
         sequences[session_id] = deque(maxlen=SEQUENCE_LENGTH)
 
     sequences[session_id].append(landmarks.reshape(FEATURES))
 
-    if len(sequences[session_id]) < SEQUENCE_LENGTH:
-        return jsonify({
-            "success": True,
-            "recognized_text": "Collecting frames...",
-            "confidence": 0.0,
-            "ready": False,
-            "frames_collected": len(sequences[session_id]),
-            "frames_required": SEQUENCE_LENGTH,
-        })
+    frames_collected = len(sequences[session_id])
 
-    sample = np.asarray(sequences[session_id], dtype=np.float32)
-    probabilities = model.predict(sample[np.newaxis, ...], verbose=0)[0]
+    if frames_collected < SEQUENCE_LENGTH:
+        return build_response(
+            recognized_text="Collecting frames...",
+            confidence=0.0,
+            ready=False,
+            frames_collected=frames_collected,
+            detected_hands=detected_hands,
+        )
+
+    sample = np.asarray(
+        sequences[session_id],
+        dtype=np.float32,
+    )
+
+    probabilities = model.predict(
+        sample[np.newaxis, ...],
+        verbose=0,
+    )[0]
 
     best_index = int(np.argmax(probabilities))
     confidence = float(probabilities[best_index])
 
-    word = (
-        str(classes[best_index])
-        if confidence >= CONFIDENCE_THRESHOLD
-        else "Uncertain"
-    )
+    if confidence >= CONFIDENCE_THRESHOLD:
+        word = str(classes[best_index])
+    else:
+        word = "Uncertain"
 
-    return jsonify({
-        "success": True,
-        "recognized_text": word,
-        "confidence": confidence,
-        "ready": True,
-        "frames_collected": SEQUENCE_LENGTH,
-        "frames_required": SEQUENCE_LENGTH,
-    })
+    return build_response(
+        recognized_text=word,
+        confidence=confidence,
+        ready=True,
+        frames_collected=SEQUENCE_LENGTH,
+        detected_hands=detected_hands,
+    )
 
 
 @app.post("/api/reset")
 def reset():
     session_id = request.form.get("session_id", "default")
+
     sequences.pop(session_id, None)
     last_timestamp.pop(session_id, None)
-    return jsonify({"success": True, "message": "Sequence reset"})
+
+    return jsonify({
+        "success": True,
+        "message": "Sequence reset",
+    })
 
 
 if __name__ == "__main__":
     try:
-        app.run(host="127.0.0.1", port=5000, debug=False)
+        app.run(
+            host="127.0.0.1",
+            port=5000,
+            debug=False,
+        )
     finally:
         landmarker.close()

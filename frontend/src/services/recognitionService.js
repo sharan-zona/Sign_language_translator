@@ -1,23 +1,30 @@
+
 /**
  * SignBridge Recognition Service
  *
- * Provides a clean interface for video frame extraction and API inference communication.
- * Connects the browser camera feed with the planned Flask computer vision pipeline.
+ * Captures webcam frames and communicates with the Flask recognition API.
+ * Passes recognized words, confidence, and hand landmarks to the frontend.
  */
 
 export const DEFAULT_API_URL =
-  import.meta.env?.VITE_RECOGNITION_API_URL || 'http://localhost:5000/api/recognize';
+  import.meta.env?.VITE_RECOGNITION_API_URL ||
+  'http://localhost:5000/api/recognize';
 
 export const HEALTH_API_URL =
-  import.meta.env?.VITE_HEALTH_API_URL || 'http://localhost:5000/api/health';
+  import.meta.env?.VITE_HEALTH_API_URL ||
+  'http://localhost:5000/api/health';
 
 /**
- * Capture a frame from an HTMLVideoElement as a base64 or Blob JPEG
+ * Capture a video frame as a JPEG Blob.
+ *
  * @param {HTMLVideoElement} videoElement
- * @param {number} quality JPEG quality between 0 and 1
+ * @param {number} quality
  * @returns {Promise<Blob>}
  */
-export async function captureVideoFrameBlob(videoElement, quality = 0.85) {
+export async function captureVideoFrameBlob(
+  videoElement,
+  quality = 0.85
+) {
   if (!videoElement || videoElement.videoWidth === 0) {
     throw new Error('Video stream is not ready for frame capture');
   }
@@ -25,14 +32,20 @@ export async function captureVideoFrameBlob(videoElement, quality = 0.85) {
   const canvas = document.createElement('canvas');
   canvas.width = videoElement.videoWidth;
   canvas.height = videoElement.videoHeight;
+
   const ctx = canvas.getContext('2d');
 
   if (!ctx) {
-    throw new Error('Unable to create 2D canvas context for frame capture');
+    throw new Error('Unable to create 2D canvas context');
   }
 
-  // Draw current frame
-  ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(
+    videoElement,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -40,7 +53,7 @@ export async function captureVideoFrameBlob(videoElement, quality = 0.85) {
         if (blob) {
           resolve(blob);
         } else {
-          reject(new Error('Failed to encode video frame to blob'));
+          reject(new Error('Failed to encode webcam frame'));
         }
       },
       'image/jpeg',
@@ -50,25 +63,33 @@ export async function captureVideoFrameBlob(videoElement, quality = 0.85) {
 }
 
 /**
- * Sends a captured video frame blob to the Flask backend recognition endpoint.
+ * Send one webcam frame to the Flask recognition API.
  *
- * Expected backend contract:
- * POST /api/recognize
- * Multipart FormData: { frame: Blob }
- *
- * Response schema:
+ * Expected response:
  * {
- *   "success": true,
- *   "recognized_text": "Hello",
- *   "confidence": 0.94
+ *   success: true,
+ *   recognized_text: "hello",
+ *   confidence: 0.85,
+ *   ready: true,
+ *   frames_collected: 64,
+ *   frames_required: 64,
+ *   landmarks: [
+ *     [[0.5, 0.4], [0.52, 0.42]]
+ *   ]
  * }
+ *
+ * Landmark coordinates should be normalized between 0 and 1.
  *
  * @param {Blob} frameBlob
  * @param {string} apiUrl
- * @param {AbortSignal} signal
- * @returns {Promise<{success: boolean, recognized_text?: string, confidence?: number, error?: string}>}
+ * @param {AbortSignal|null} signal
+ * @returns {Promise<object>}
  */
-export async function sendFrameForRecognition(frameBlob, apiUrl = DEFAULT_API_URL, signal = null) {
+export async function sendFrameForRecognition(
+  frameBlob,
+  apiUrl = DEFAULT_API_URL,
+  signal = null
+) {
   const formData = new FormData();
   formData.append('frame', frameBlob, 'frame.jpg');
 
@@ -91,64 +112,98 @@ export async function sendFrameForRecognition(frameBlob, apiUrl = DEFAULT_API_UR
 
     const data = await response.json();
 
-    // Validate response schema
-    if (typeof data !== 'object' || data === null) {
+    if (!data || typeof data !== 'object') {
       return {
         success: false,
         error: 'Invalid response format: expected JSON object',
       };
     }
 
-  if (data.success && typeof data.recognized_text === 'string') {
-  return {
-    success: true,
-    recognized_text: data.recognized_text.trim(),
-    confidence: typeof data.confidence === 'number' ? data.confidence : 0,
-    ready: data.ready !== false,
-    frames_collected: data.frames_collected ?? 0,
-    frames_required: data.frames_required ?? 64,
-  };
-}
-    return {
-      success: false,
-      error: data.error || 'Recognition model was unable to classify gestures in frame',
-    };
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      return { success: false, error: 'Recognition request cancelled' };
+    if (
+      data.success &&
+      typeof data.recognized_text === 'string'
+    ) {
+      return {
+        success: true,
+        recognized_text: data.recognized_text.trim(),
+
+        confidence:
+          typeof data.confidence === 'number'
+            ? data.confidence
+            : 0,
+
+        landmarks: Array.isArray(data.landmarks) ? data.landmarks : [],
+
+        ready: data.ready !== false,
+
+        frames_collected:
+          data.frames_collected ?? 0,
+
+        frames_required:
+          data.frames_required ?? 64,
+      };
     }
 
     return {
       success: false,
-      error: `Recognition model not connected. Backend API at ${apiUrl} is unavailable.`,
+      error:
+        data.error ||
+        'Recognition model was unable to classify gestures',
+    };
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'Recognition request cancelled',
+      };
+    }
+
+    return {
+      success: false,
+      error: `Recognition backend is unavailable at ${apiUrl}.`,
     };
   }
 }
 
 /**
- * Health check verification for backend Flask service
+ * Check whether the Flask backend is available.
+ *
  * @param {string} healthUrl
  * @returns {Promise<{available: boolean, message: string}>}
  */
-export async function checkBackendConnection(healthUrl = HEALTH_API_URL) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
+export async function checkBackendConnection(
+  healthUrl = HEALTH_API_URL
+) {
+  const controller = new AbortController();
 
-    const res = await fetch(healthUrl, {
+  const timeout = setTimeout(
+    () => controller.abort(),
+    2000
+  );
+
+  try {
+    const response = await fetch(healthUrl, {
       method: 'GET',
       signal: controller.signal,
     });
-    clearTimeout(timeout);
 
-    if (res.ok) {
-      return { available: true, message: 'Recognition backend connected' };
+    if (response.ok) {
+      return {
+        available: true,
+        message: 'Recognition backend connected',
+      };
     }
-    return { available: false, message: `Backend responded with HTTP ${res.status}` };
+
+    return {
+      available: false,
+      message: `Backend responded with HTTP ${response.status}`,
+    };
   } catch {
     return {
       available: false,
-      message: 'Recognition model not connected (Backend server offline)',
+      message: 'Recognition backend is offline',
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
