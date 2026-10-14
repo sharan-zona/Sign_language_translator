@@ -23,10 +23,10 @@ import {
 import {
   captureVideoFrameBlob,
   sendFrameForRecognition,
+  resetRecognitionSession,
   checkBackendConnection,
   DEFAULT_API_URL,
 } from '../services/recognitionService';
-
 import './TranslatePage.css';
 
 export default function TranslatePage() {

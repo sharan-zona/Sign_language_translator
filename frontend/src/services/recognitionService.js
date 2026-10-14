@@ -91,6 +91,7 @@ export async function sendFrameForRecognition(
   signal = null
 ) {
   const formData = new FormData();
+  formData.append('session_id', 'default');
   formData.append('frame', frameBlob, 'frame.jpg');
 
   try {
@@ -206,4 +207,28 @@ export async function checkBackendConnection(
   } finally {
     clearTimeout(timeout);
   }
+}
+export async function resetRecognitionSession(
+  apiUrl = DEFAULT_API_URL,
+  signal = null
+) {
+  const resetUrl = apiUrl.replace(/\/recognize\/?$/, '/reset');
+
+  const formData = new FormData();
+  formData.append('session_id', 'default');
+
+  const response = await fetch(resetUrl, {
+    method: 'POST',
+    body: formData,
+    signal: signal || undefined,
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to reset recognition: HTTP ${response.status}`);
+  }
+
+  return response.json();
 }
