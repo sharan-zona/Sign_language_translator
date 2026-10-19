@@ -5,9 +5,6 @@ from collections import Counter
 from sklearn.preprocessing import LabelEncoder
 
 
-# --------------------------------------------------
-# Configuration
-# --------------------------------------------------
 
 PROCESSED_DIR = Path("backend/processed_data_v2")
 OUTPUT_DIR = Path("backend/training_data_v3")
@@ -20,16 +17,9 @@ MIN_SAMPLES_PER_CLASS = 6
 RANDOM_SEED = 42
 
 
-# --------------------------------------------------
-# Create output directory
-# --------------------------------------------------
-
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# --------------------------------------------------
-# Load labels
-# --------------------------------------------------
 
 print("Loading labels...")
 
@@ -38,9 +28,6 @@ df = pd.read_csv(LABELS_FILE)
 print("Total samples in labels.csv:", len(df))
 
 
-# --------------------------------------------------
-# Check class distribution
-# --------------------------------------------------
 
 word_counts = Counter(df["word"])
 
@@ -50,9 +37,6 @@ for word, count in sorted(word_counts.items()):
     print(f"{word:12} : {count}")
 
 
-# --------------------------------------------------
-# Remove classes with too few samples
-# --------------------------------------------------
 
 valid_words = {
     word
