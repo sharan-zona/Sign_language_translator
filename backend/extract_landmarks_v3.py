@@ -46,7 +46,15 @@ options = Options(
     min_tracking_confidence=0.1,
 )
 
+labels_file = PROCESSED_DIR / "labels.csv"
+
+# Preserve labels from previous extraction runs.
 records = []
+if labels_file.exists():
+    with labels_file.open(newline="", encoding="utf-8") as f:
+        records = list(csv.DictReader(f))
+
+existing_filenames = {row["filename"] for row in records}
 failures = []
 
 for position, (source_index, row) in enumerate(selected, 1):
@@ -56,6 +64,14 @@ for position, (source_index, row) in enumerate(selected, 1):
     # Unique names avoid collisions with old V2 or test files.
     filename = f"v3_{source_index:04d}_{Path(video_path).stem}.npy"
     output_file = PROCESSED_DIR / filename
+
+    # Skip existing files and preserve their labels.
+    if output_file.exists():
+        if filename not in existing_filenames:
+            records.append({"filename": filename, "word": word})
+            existing_filenames.add(filename)
+        print(f"Skipping existing file: {filename}")
+        continue
 
     print(f"\n[{position}/{len(selected)}] {word}: {filename}")
 
@@ -147,6 +163,7 @@ for position, (source_index, row) in enumerate(selected, 1):
 
         np.save(output_file, array)
         records.append({"filename": filename, "word": word})
+        existing_filenames.add(filename)
 
         rate = 100 * detected_frames / frame_count if frame_count else 0
         print(

@@ -6,7 +6,7 @@ from sklearn.preprocessing import LabelEncoder
 
 
 
-PROCESSED_DIR = Path("backend/processed_data_v2")
+PROCESSED_DIR = Path("backend/processed_data_v3")
 OUTPUT_DIR = Path("backend/training_data_v3")
 
 LABELS_FILE = PROCESSED_DIR / "labels.csv"
