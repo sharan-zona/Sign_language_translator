@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Camera,
@@ -48,6 +47,8 @@ export default function TranslatePage() {
   const [recognitionNotice, setRecognitionNotice] = useState('');
   const [handLandmarks, setHandLandmarks] = useState([]);
   const [handConfidence, setHandConfidence] = useState(0);
+  // Real camera aspect ratio, so the hand skeleton lines up with the video.
+  const [videoAspect, setVideoAspect] = useState(16 / 9);
 
   // Translation
   const [translatedText, setTranslatedText] = useState('');
@@ -545,21 +546,82 @@ export default function TranslatePage() {
     }
   };
 
+  // ---------------------------------------------------------
+  // Display-only values (no recognition logic lives here)
+  // ---------------------------------------------------------
+  const isCameraOn = cameraStatus === 'Camera On';
+  const confidencePercent = Math.round(handConfidence * 100);
+  const confidenceLevel =
+    confidencePercent >= 80
+      ? 'high'
+      : confidencePercent >= 55
+      ? 'medium'
+      : 'low';
+
+  let outputBadge = {
+    label: 'Waiting for signs',
+    className: 'badge-status-waiting',
+  };
+
+  if (recognitionStatus === 'Ready') {
+    outputBadge = {
+      label: 'Translation ready',
+      className: 'badge-status-ready',
+    };
+  } else if (recognitionStatus === 'Processing') {
+    outputBadge = {
+      label: 'Recognizing…',
+      className: 'badge-status-recognizing',
+    };
+  } else if (
+    recognitionStatus === 'Error' ||
+    recognitionStatus === 'Model Disconnected'
+  ) {
+    outputBadge = {
+      label: 'Recognition unavailable',
+      className: 'badge-status-unavailable',
+    };
+  }
+
+  const currentStep = !isCameraOn ? 1 : !isRecognizing ? 2 : 3;
+
+  const howToSteps = [
+    {
+      id: 1,
+      icon: Camera,
+      title: 'Turn on the camera',
+      text: 'Allow camera access when your browser asks.',
+    },
+    {
+      id: 2,
+      icon: Play,
+      title: 'Press Start Translation',
+      text: 'The app starts reading your hand movements.',
+    },
+    {
+      id: 3,
+      icon: Activity,
+      title: 'Show a sign',
+      text: 'Keep both hands inside the frame with good light.',
+    },
+  ];
+
   return (
     <div className="translate-page-root">
       <div className="container translate-container">
+        {/* ---------------- Page header ---------------- */}
         <section
           className="translate-header-section"
           aria-labelledby="translate-page-title"
         >
-          <div className="translate-header-content text-center">
+          <div className="translate-header-content">
             <h1 id="translate-page-title" className="translate-main-heading">
               Sign Language Translator
             </h1>
 
             <p className="translate-main-description">
-              Show a supported sign in front of your camera and view the
-              recognized text in real time.
+              Show a supported sign to your camera and read the translation
+              live, right next to you.
             </p>
 
             <div className="translate-info-chips">
@@ -579,338 +641,359 @@ export default function TranslatePage() {
           </div>
         </section>
 
-        <section className="camera-card" aria-label="Camera preview">
-          <div className="card-header">
-            <div className="card-header-left">
-              <Camera size={20} className="card-header-icon" />
-              <h2 className="card-title">Live Camera</h2>
+        {/* ---------------- Workspace: camera LEFT, translation RIGHT ---------------- */}
+        <div className="translate-workspace">
+          {/* ===== LEFT: camera ===== */}
+          <section className="camera-card" aria-label="Camera preview">
+            <div className="card-header">
+              <div className="card-header-left">
+                <Camera size={20} className="card-header-icon" />
+                <h2 className="card-title">Live Camera</h2>
+              </div>
+
+              <div className="card-header-right">
+                <span
+                  className={`badge ${
+                    cameraStatus === 'Camera On'
+                      ? 'badge-camera-on'
+                      : cameraStatus === 'Camera Error'
+                      ? 'badge-camera-error'
+                      : 'badge-camera-off'
+                  }`}
+                  role="status"
+                >
+                  {cameraStatus}
+                </span>
+              </div>
             </div>
 
-            <div className="card-header-right">
-              <span
-                className={`badge ${
-                  cameraStatus === 'Camera On'
-                    ? 'badge-camera-on'
-                    : cameraStatus === 'Camera Error'
-                    ? 'badge-camera-error'
-                    : 'badge-camera-off'
-                }`}
-                role="status"
-              >
-                {cameraStatus}
-              </span>
-            </div>
-          </div>
-
-          <div className="camera-viewport-container">
             <div
-              className="camera-feed-wrapper"
-              style={{
-                display: cameraStatus === 'Camera On' ? 'block' : 'none',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
+              className="camera-viewport-container"
+              style={{ aspectRatio: videoAspect }}
             >
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="camera-video-stream"
-                aria-label="Live webcam"
-              />
-
-              <canvas
-                ref={skeletonCanvasRef}
-                className="hand-skeleton-overlay"
-                aria-label="Detected hand skeleton"
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none',
-                  zIndex: 2,
-                }}
-              />
-
               <div
-                style={{
-                  position: 'absolute',
-                  left: 16,
-                  bottom: 16,
-                  zIndex: 4,
-                  color: '#b9fff0',
-                  background: 'rgba(0, 20, 20, 0.82)',
-                  padding: '9px 12px',
-                  borderRadius: 8,
-                  fontSize: 13,
-                }}
+                className="camera-feed-wrapper"
+                style={{ display: isCameraOn ? 'block' : 'none' }}
               >
-                <div>
-                  Confidence: {(handConfidence * 100).toFixed(1)}%
-                </div>
-
-                <div
-                  style={{
-                    width: 150,
-                    height: 4,
-                    marginTop: 7,
-                    background: 'rgba(255,255,255,0.2)',
-                    borderRadius: 4,
-                    overflow: 'hidden',
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="camera-video-stream"
+                  aria-label="Live webcam"
+                  onLoadedMetadata={(event) => {
+                    const { videoWidth, videoHeight } = event.currentTarget;
+                    if (videoWidth && videoHeight) {
+                      setVideoAspect(videoWidth / videoHeight);
+                    }
                   }}
-                >
-                  <div
-                    style={{
-                      width: `${handConfidence * 100}%`,
-                      height: '100%',
-                      background: '#35e0c1',
-                      transition: 'width 0.2s ease',
-                    }}
-                  />
-                </div>
-              </div>
+                />
 
-              <div className="camera-overlay-bar" aria-hidden="true">
-                <div className="overlay-tag overlay-live">
-                  <span className="pulse-dot" /> LIVE
-                </div>
+                <canvas
+                  ref={skeletonCanvasRef}
+                  className="hand-skeleton-overlay"
+                  aria-label="Detected hand skeleton"
+                />
 
-                {isRecognizing && (
-                  <div className="overlay-tag overlay-scanning">
-                    <Sparkles size={12} />
-                    <span>RECOGNITION ACTIVE</span>
+                <div className="camera-confidence-box">
+                  <div>Confidence: {(handConfidence * 100).toFixed(1)}%</div>
+                  <div className="camera-confidence-track">
+                    <div
+                      className="camera-confidence-fill"
+                      style={{ width: `${handConfidence * 100}%` }}
+                    />
                   </div>
-                )}
+                </div>
 
-                <div className="overlay-tag overlay-res">720p HD</div>
+                <div className="camera-overlay-bar" aria-hidden="true">
+                  <div className="overlay-tag overlay-live">
+                    <span className="pulse-dot" /> LIVE
+                  </div>
+
+                  {isRecognizing && (
+                    <div className="overlay-tag overlay-scanning">
+                      <Sparkles size={12} />
+                      <span>RECOGNITION ACTIVE</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="camera-reticle reticle-tl" />
+                <div className="camera-reticle reticle-tr" />
+                <div className="camera-reticle reticle-bl" />
+                <div className="camera-reticle reticle-br" />
               </div>
 
-              <div className="camera-reticle reticle-tl" />
-              <div className="camera-reticle reticle-tr" />
-              <div className="camera-reticle reticle-bl" />
-              <div className="camera-reticle reticle-br" />
+              {!isCameraOn && (
+                <div className="camera-placeholder-stage">
+                  <div className="placeholder-icon-circle">
+                    <Camera size={40} className="placeholder-camera-icon" />
+                  </div>
+
+                  <h3 className="placeholder-title">
+                    Camera preview will appear here
+                  </h3>
+
+                  <p className="placeholder-subtitle">
+                    Enable your camera to begin.
+                  </p>
+
+                  <button
+                    type="button"
+                    className="btn-placeholder-camera"
+                    onClick={turnCameraOn}
+                  >
+                    <Camera size={18} />
+                    <span>Turn Camera On</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            {cameraStatus !== 'Camera On' && (
-              <div className="camera-placeholder-stage">
-                <div className="placeholder-icon-circle">
-                  <Camera size={44} className="placeholder-camera-icon" />
-                </div>
-
-                <h3 className="placeholder-title">
-                  Camera preview will appear here.
-                </h3>
-
-                <p className="placeholder-subtitle">
-                  Enable your camera to begin.
-                </p>
-
-                <button
-                  type="button"
-                  className="btn-placeholder-camera"
-                  onClick={turnCameraOn}
-                >
-                  <Camera size={18} />
-                  <span>Turn Camera On</span>
-                </button>
+            {cameraErrorMessage && (
+              <div className="camera-error-banner" role="alert">
+                <AlertCircle size={18} />
+                <span>{cameraErrorMessage}</span>
               </div>
             )}
-          </div>
 
-          {cameraErrorMessage && (
-            <div className="camera-error-banner" role="alert">
-              <AlertCircle size={18} />
-              <span>{cameraErrorMessage}</span>
-            </div>
-          )}
-
-          <div className="camera-controls-bar">
-            <div className="controls-button-group">
-              {isRecognizing ? (
-                <button
-                  type="button"
-                  className="btn-control btn-stop-translation"
-                  onClick={stopTranslation}
-                >
-                  <Square size={18} fill="currentColor" />
-                  <span>Stop Translation</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn-control btn-start-translation"
-                  onClick={startTranslation}
-                >
-                  <Play size={18} fill="currentColor" />
-                  <span>Start Translation</span>
-                </button>
-              )}
-
-              {cameraStatus === 'Camera On' ? (
-                <button
-                  type="button"
-                  className="btn-control btn-toggle-camera btn-camera-active"
-                  onClick={turnCameraOff}
-                >
-                  <VideoOff size={18} />
-                  <span>Turn Camera Off</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn-control btn-toggle-camera"
-                  onClick={turnCameraOn}
-                >
-                  <Camera size={18} />
-                  <span>Turn Camera On</span>
-                </button>
-              )}
-            </div>
-
-            <p className="camera-helper-text">
-              Keep your hands inside the frame and use good lighting.
-            </p>
-          </div>
-        </section>
-
-        <section className="output-card" aria-label="Translation output">
-          <div className="card-header">
-            <div className="card-header-left">
-              <MessageSquare size={20} className="card-header-icon" />
-              <h2 className="card-title">Translation Output</h2>
-            </div>
-
-            <div className="card-header-right">
-              <span className="badge">
-                {recognitionStatus === 'Ready'
-                  ? 'Translation ready'
-                  : recognitionStatus === 'Processing'
-                  ? 'Recognizing'
-                  : recognitionStatus === 'Error' ||
-                    recognitionStatus === 'Model Disconnected'
-                  ? 'Recognition unavailable'
-                  : 'Waiting for signs'}
-              </span>
-            </div>
-          </div>
-
-          <div className="output-body">
-            {translatedText ? (
-              <div className="recognized-text-display">
-                {isDemoText && (
-                  <div className="demo-mode-pill">
-                    <Info size={12} />
-                    <span>Demo sample — not model output</span>
-                  </div>
+            <div className="camera-controls-bar">
+              <div className="controls-button-group">
+                {isRecognizing ? (
+                  <button
+                    type="button"
+                    className="btn-control btn-stop-translation"
+                    onClick={stopTranslation}
+                  >
+                    <Square size={18} fill="currentColor" />
+                    <span>Stop Translation</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-control btn-start-translation"
+                    onClick={startTranslation}
+                  >
+                    <Play size={18} fill="currentColor" />
+                    <span>Start Translation</span>
+                  </button>
                 )}
 
-                <div className="main-translated-string" aria-live="polite">
-                  “{translatedText}”
-                </div>
+                {isCameraOn ? (
+                  <button
+                    type="button"
+                    className="btn-control btn-toggle-camera btn-camera-active"
+                    onClick={turnCameraOff}
+                  >
+                    <VideoOff size={18} />
+                    <span>Turn Camera Off</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-control btn-toggle-camera"
+                    onClick={turnCameraOn}
+                  >
+                    <Camera size={18} />
+                    <span>Turn Camera On</span>
+                  </button>
+                )}
+              </div>
 
-                {textLog.length > 1 && (
+              <p className="camera-helper-text">
+                Tip: keep your hands inside the frame and face a light source.
+              </p>
+            </div>
+          </section>
+
+          {/* ===== RIGHT: translation ===== */}
+          <section className="output-card" aria-label="Translation output">
+            <div className="card-header">
+              <div className="card-header-left">
+                <MessageSquare size={20} className="card-header-icon" />
+                <h2 className="card-title">Translation</h2>
+              </div>
+
+              <div className="card-header-right">
+                <span className={`badge ${outputBadge.className}`} role="status">
+                  {isRecognizing && <span className="live-dot" />}
+                  {outputBadge.label}
+                </span>
+              </div>
+            </div>
+
+            <div className="output-body">
+              {/* Current sign */}
+              <div className="translation-display" aria-live="polite">
+                {translatedText ? (
+                  <>
+                    {isDemoText && (
+                      <div className="demo-mode-pill">
+                        <Info size={12} />
+                        <span>Demo sample — not model output</span>
+                      </div>
+                    )}
+
+                    <span className="translation-label">Detected sign</span>
+
+                    <div className="main-translated-string">
+                      {translatedText}
+                    </div>
+
+                    {isRecognizing && !isDemoText && (
+                      <div
+                        className={`confidence-meter level-${confidenceLevel}`}
+                      >
+                        <div className="confidence-meter-top">
+                          <span>Confidence</span>
+                          <strong>{confidencePercent}%</strong>
+                        </div>
+                        <div className="confidence-meter-track">
+                          <div
+                            className="confidence-meter-fill"
+                            style={{ width: `${confidencePercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="output-empty-state">
+                    <p className="empty-state-text">
+                      Your translation will appear here.
+                    </p>
+
+                    <ol className="how-to-steps">
+                      {howToSteps.map(
+                        ({ id, icon: StepIcon, title, text }) => (
+                          <li
+                            key={id}
+                            className={`step-item ${
+                              id === currentStep
+                                ? 'step-active'
+                                : id < currentStep
+                                ? 'step-done'
+                                : ''
+                            }`}
+                          >
+                            <span className="step-icon">
+                              {id < currentStep ? (
+                                <Check size={16} />
+                              ) : (
+                                <StepIcon size={16} />
+                              )}
+                            </span>
+
+                            <span className="step-text">
+                              <strong>{title}</strong>
+                              <span>{text}</span>
+                            </span>
+                          </li>
+                        )
+                      )}
+                    </ol>
+                  </div>
+                )}
+              </div>
+
+              {/* Words recognized so far */}
+              {textLog.length > 0 && (
+                <div className="history-panel">
+                  <span className="log-label">Recognized words</span>
+
                   <div className="recognized-log-flow">
-                    <span className="log-label">History:</span>
                     {textLog.map((phrase, index) => (
                       <span key={`${phrase}-${index}`} className="phrase-pill">
                         {phrase}
                       </span>
                     ))}
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="output-empty-state">
-                <p className="empty-state-text">
-                  Your translated text will appear here.
-                </p>
-                <p className="empty-state-sub">
-                  Start the camera and show a supported sign.
-                </p>
-              </div>
-            )}
+                </div>
+              )}
 
-            {recognitionNotice && (
-              <div className="recognition-notice-box" role="status">
-                <AlertCircle size={16} />
-                <span>{recognitionNotice}</span>
-              </div>
-            )}
+              {recognitionNotice && (
+                <div className="recognition-notice-box" role="status">
+                  <AlertCircle size={16} />
+                  <span>{recognitionNotice}</span>
+                </div>
+              )}
 
-            <div className="output-action-row">
-              <div className="output-actions-left">
-                <button
-                  type="button"
-                  className={`btn-action-pill ${voiceEnabled ? 'btn-voice-on' : ''}`}
-                  onClick={toggleVoiceOutput}
-                  disabled={!speechAvailable}
-                >
-                  {voiceEnabled ? (
-                    <>
-                      <Volume2 size={16} />
-                      <span>Voice Output On</span>
-                    </>
-                  ) : (
-                    <>
-                      <VolumeX size={16} />
-                      <span>Enable Voice Output</span>
-                    </>
-                  )}
-                </button>
+              {/* Actions */}
+              <div className="output-action-row">
+                <div className="output-actions-grid">
+                  <button
+                    type="button"
+                    className={`btn-action-pill ${
+                      voiceEnabled ? 'btn-voice-on' : ''
+                    }`}
+                    onClick={toggleVoiceOutput}
+                    disabled={!speechAvailable}
+                  >
+                    {voiceEnabled ? (
+                      <>
+                        <Volume2 size={16} />
+                        <span>Voice On</span>
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX size={16} />
+                        <span>Voice Off</span>
+                      </>
+                    )}
+                  </button>
 
-                <button
-                  type="button"
-                  className="btn-action-pill"
-                  onClick={handleCopyText}
-                  disabled={!translatedText}
-                >
-                  {copyFeedback ? (
-                    <>
-                      <Check size={16} />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={16} />
-                      <span>Copy Text</span>
-                    </>
-                  )}
-                </button>
+                  <button
+                    type="button"
+                    className="btn-action-pill"
+                    onClick={handleCopyText}
+                    disabled={!translatedText}
+                  >
+                    {copyFeedback ? (
+                      <>
+                        <Check size={16} />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={16} />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
 
-                <button
-                  type="button"
-                  className="btn-action-pill btn-clear"
-                  onClick={handleClearText}
-                  disabled={!translatedText}
-                >
-                  <Trash2 size={16} />
-                  <span>Clear Text</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className="btn-action-pill btn-clear"
+                    onClick={handleClearText}
+                    disabled={!translatedText}
+                  >
+                    <Trash2 size={16} />
+                    <span>Clear</span>
+                  </button>
+                </div>
 
-              <div className="output-actions-right">
                 <button
                   type="button"
                   className="btn-demo-sample"
                   onClick={handleInsertDemoSample}
                 >
                   <Zap size={14} />
-                  <span>Load Sample Demo Phrase</span>
+                  <span>Load sample demo phrase</span>
                 </button>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
+        {/* ---------------- System status ---------------- */}
         <section className="status-cards-row" aria-label="System status">
           <div className="status-mini-card">
             <div className="mini-card-icon-wrapper">
               <Camera size={20} />
             </div>
             <div className="mini-card-content">
-              <span className="mini-card-label">Camera Status</span>
+              <span className="mini-card-label">Camera</span>
               <span className="status-text">{cameraStatus}</span>
             </div>
           </div>
@@ -920,7 +1003,7 @@ export default function TranslatePage() {
               <Activity size={20} />
             </div>
             <div className="mini-card-content">
-              <span className="mini-card-label">Recognition Status</span>
+              <span className="mini-card-label">Recognition</span>
               <span className="status-text">{recognitionStatus}</span>
             </div>
           </div>
@@ -930,7 +1013,7 @@ export default function TranslatePage() {
               <Volume2 size={20} />
             </div>
             <div className="mini-card-content">
-              <span className="mini-card-label">Voice Status</span>
+              <span className="mini-card-label">Voice</span>
               <span className="status-text">
                 {voiceEnabled ? 'Voice On' : 'Voice Off'}
               </span>
@@ -938,6 +1021,7 @@ export default function TranslatePage() {
           </div>
         </section>
 
+        {/* ---------------- Backend connection ---------------- */}
         <section className="backend-info-card" aria-label="Backend status">
           <div className="backend-info-header">
             <div className="backend-info-title">
@@ -955,7 +1039,9 @@ export default function TranslatePage() {
                 size={14}
                 className={isCheckingBackend ? 'spin-icon' : ''}
               />
-              <span>{isCheckingBackend ? 'Checking...' : 'Check Connection'}</span>
+              <span>
+                {isCheckingBackend ? 'Checking...' : 'Check Connection'}
+              </span>
             </button>
           </div>
 
